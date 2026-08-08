@@ -93,7 +93,45 @@ bash install/install.sh "C:/hemes"   # второй прогон ничего н
 Повторный запуск подтвердил: все секции переходят в состояние «уже есть»
 (движок, opм-пакеты списком, образ bslc) — установка безопасно повторяем.
 
-## 5. Что НЕ сделано / требует сети
+## 5. ninja — создание баз (Фаза 2, проверено)
+
+```bash
+bash scripts/ninja.sh new demo-bp --ext DataExchange --ext PrintForms
+```
+
+Создаёт: `src/cf` (выгрузка типовой, read-only), `src/cfe/<расширение>…`,
+`notes/registry.md` (версия типовой — строка TBD), `reports/`,
+`.bsl-language-server.json`, `AGENTS.md` (из `templates/AGENTS.md.tpl`),
+`.gitignore` базы, `git init -b main`. Регистрирует базу в `tools/projects.json`.
+
+Грабли:
+- имена баз/расширений валидируются (только латиница/цифры/`-_`);
+- повторное создание при существующем каталоге — ошибка;
+- json-реестр ведёт `scripts/ninja_json.py` (python на Windows не понимает
+  MSYS-пути — все пути передаются в Windows-форме через `cygpath -w`).
+
+## 6. bsl-check — статический анализ (Фаза 3, проверено)
+
+```bash
+bash scripts/bsl-check.sh <база> <расширение> [--reporter json|sarif]
+```
+
+Docker-обёртка bslc (образ `bslc:1.0.7`): `--srcDir src/cfe/<расширение>` +
+`--srcDir src/cf` (контекст типовой — только если каталог НЕ пуст: bslc падает
+на пустом srcDir), `--configuration .bsl-language-server.json`, `--outputDir
+/ws/reports`. Отчёт — `reports/<Расширение>_<ts>.json`; резюме — сумма
+`fileinfos[].diagnostics` (формат bslc 1.0.7: dict с ключами date/fileinfos/sourceDir).
+
+Проверено: файл с ошибками переноса → 7 диагностик; корректный модуль → 1
+(Hint по стилю). Тег образа пинуем версией, не `latest`.
+
+## 7. Список и обзор баз (Фаза 4, проверено)
+
+- `bash scripts/ninja.sh list` — реестр из `tools/projects.json`;
+- `bash scripts/ninja.sh scan` — обход `PROJECTS_ROOT`: выявляет базы на диске
+  (`<имя>/src/cfe`), в т.ч. НЕ зарегистрированные (с подсказкой команды добавления).
+
+## 8. Что НЕ сделано / требует сети
 
 - `yaxunit` — github.com/opm.one недоступны (см. §2).
 - Публикация в GitHub (Фаза 6) — только по отдельному «го».

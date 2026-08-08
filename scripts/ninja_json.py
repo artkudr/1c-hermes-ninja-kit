@@ -45,6 +45,12 @@ def main():
         for name, p in sorted(projs.items()):
             exts = ", ".join(p.get("extensions") or [])
             print("%-22s %s  [%s]" % (name, p.get("path", "?"), exts))
+    elif cmd == "get":  # get <projects.json> <key>  → печатает path
+        key = sys.argv[3]
+        data = load(path)
+        p = data.get("projects", {}).get(key)
+        if p:
+            print(p.get("path", ""))
     else:
         sys.exit("неизвестная команда: %s" % cmd)
 
