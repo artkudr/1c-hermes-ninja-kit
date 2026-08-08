@@ -17,3 +17,14 @@
   Windows-пути `C:/…` в PATH cmd-процесс не принимает, нужны `/c/…`.
 - **yaxunit из git** — пакет в реестре opm может отсутствовать; канал установки —
   `opm install https://github.com/xdriven…/yaxunit`.
+- **json-реестр баз** — отдельным python-файлом (`scripts/ninja_json.py`), а не
+  bash-вставками: python на Windows не понимает MSYS-пути, все пути передаются
+  в Windows-форме (`cygpath -w`), иначе `C:\c\hemes\…`.
+- **bslc 1.0.7 (json-формат отчёта)** — не массив, а dict
+  `{date, sourceDir, fileinfos:[{path, mdoRef, diagnostics:[…]}]}`;
+  счётчик суммирует `fileinfos[].diagnostics`.
+- **пустой srcDir** — bslc падает на пустом `--srcDir`; контекст `src/cf`
+  включается, только если каталог непустой.
+- **отчёт пишется в файл** контейнера (`--outputDir` + фиксированное имя
+  `bsl-json.json`), поэтому обёртка переименовывает его в
+  `<Расширение>_<ts>.json`.
