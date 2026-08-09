@@ -191,13 +191,26 @@ npm i -g --ignore-scripts --loglevel=verbose --fetch-retries=4 \
 # 5) проверка
 prime-agent --version   # → 0.7.1
 prime-agent --help
+prime-agent model list  # провайдер называется `opencode` (это OpenCode Zen);
+                        # модель `deepseek-v4-flash-free` есть в списке
+# 6) первый вызов (ключ — из Hermes .env: OPENCODE_ZEN_API_KEY = OPENCODE_API_KEY)
+HKEY=$(grep '^OPENCODE_ZEN_API_KEY=' "$HOME/AppData/Local/hermes/.env" | cut -d= -f2-)
+OPENCODE_API_KEY="$HKEY" prime-agent --provider opencode --model deepseek-v4-flash-free \
+  -p "Ответь одним словом: ок"          # text: «ок» (≈11 c)
+OPENCODE_API_KEY="$HKEY" prime-agent --mode json --provider opencode --model deepseek-v4-flash-free \
+  "Сколько будет 2+2? Ответь цифрой."   # JSONL: session→agent_start→message_*→agent_end
 ```
 
 Грабли:
 - `npm config set allow-remote true` — **невалидное значение** (нужно `all|none|root`);
 - Node 22.8+ обязателен (в cli.js есть version-check);
-- авторизация провайдера — отдельно: prime-agent ждёт `OPENCODE_API_KEY`
-  (у Hermes тот же ключ лежит как `OPENCODE_ZEN_API_KEY` в `.env`);
+- **ключ runtime читается только из env** `OPENCODE_API_KEY` (`getEnvApiKey` в коде);
+  `~/.prime/agent/auth.json` для этого НЕ используется (он для `/login` в TUI) —
+  при запуске всегда `OPENCODE_API_KEY=...` или export в профиль;
+- имя провайдера в CLI — `opencode` (в Hermes конфиге он называется `opencode-zen`,
+  это один и тот же сервис); модель — `deepseek-v4-flash-free` (как в Hermes);
+- модель «как в Hermes»: текущая сессия Hermes = `deepseek-v4-flash-free` (opencode-zen) —
+  проверено: `prime-agent model list` содержит эту модель;
 - при неверифицированной сети первый запуск агента может потребовать доступа
   к недоступным хостам — проверять по фактическим ошибкам.
 
