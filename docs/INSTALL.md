@@ -245,6 +245,9 @@ bash C:/hemes/tools/scripts/pi.sh "переведи: hello world"  # → «пр�
 
 ```bash
 # 1) запуск моста (держит prime-agent --mode rpc в фоне, БЕЗ окон):
+#    ⚠ ВАРИАНТ ДЛЯ ОТЛАДКИ: сам pythonw не создаёт консоли, но воркеры prime
+#    всё равно открывают окна Windows Terminal поверх (проверено).
+#    БОЕВОЙ вариант — служба Windows, см. раздел «Режим фоновой службы» ниже.
 #    pythonw.exe = GUI-вариант python: консольное окно не создаётся вообще.
 "C:/Users/artkudr/AppData/Local/hermes/hermes-agent/venv/Scripts/pythonw.exe" \
   "C:/hemes/tools/scripts/pi-bridge.py"
@@ -311,6 +314,22 @@ UAC-обёртка из обычной сессии:
 powershell -NoProfile -Command "Start-Process powershell -Verb RunAs -Wait   -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File',  'C:\hemes\tools\scripts\install-service.ps1'"
 ```
 Протокол установки — C:\hemes\tools\run\svc-install.log.
+
+Автономность (после установки служба живёт сама):
+- при включении Windows служба стартует автоматически (start=auto);
+- упадёт мост — NSSM перезапустит его (AppExit Default Restart);
+- принудительно: `nssm restart|stop pi-bridge` (из админ-консоли;
+  status — из любой).
+- монополия шины: НЕ запускать второй мост (pythonw вручную), пока служба
+  жива, — два процесса будут конкурировать за pi-cmd/pi-out.log.
+
+Перенос на другой ПК (развёртывание из репозитория):
+- `scripts/pi-bridge.py`, `scripts/install-service.ps1`, `scripts/pi.sh`
+  входят в репозиторий; перед установкой службы заменить в них
+  `C:\Users\artkudr` на профиль нового пользователя (node.exe,
+  node_modules/prime-agent, .env с ключом) и `C:\hemes\tools` при ином корне.
+- после чего два шага: `winget install -e --id NSSM.NSSM` и
+  `install-service.ps1` из-под админа (UAC-обёртка выше).
 
 ## 10. Публикация на GitHub (Фаза 6 — подготовлено, ждёт сети и «го»)
 
