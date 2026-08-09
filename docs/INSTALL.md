@@ -235,6 +235,36 @@ bash C:/hemes/tools/scripts/pi.sh "Сколько будет 7*6?"   # → 42
 bash C:/hemes/tools/scripts/pi.sh "переведи: hello world"  # → «привет мир»
 ```
 
+### Делегирование задач из Hermes — файловая шина (проверено 2026-08-09)
+
+Развернуть живой RPC-процесс через stdin фонового терминала **нельзя**:
+у background-процессов Hermes stdin сразу EOF (cat умирает), FIFO на Windows
+ломается (`read ENOTCONN` в Node), PTY не читает ответы. Рабочий канал —
+**файловая шина**: `python`-мост держит prime-agent (PIPE), команды — файлами,
+ответы — в лог.
+
+```bash
+# 1) запуск моста (держит prime-agent --mode rpc в фоне)
+python "C:/hemes/tools/scripts/pi-bridge.py"
+# 2) делегирование: пишем команду файлом
+echo '{"type":"prompt","id":"p1","message":"Текст задачи"}' \
+  > "C:/hemes/tools/run/pi-cmd/002-task.json"
+# 3) ответ — в логе (JSONL; финал: agent_end → content[].text):
+tail -c 2000 "C:/hemes/tools/run/pi-out.log"
+```
+
+- каталоги: команды `C:/hemes/tools/run/pi-cmd/*.json` → после обработки
+  переезжают в `pi-cmd/.done/`; ответы и события — `pi-out.log` (append);
+- команды: `{"type":"prompt","id":N,"message":"..."}` — и любой RPC-набор
+  (get_state, steer, abort и т.д.);
+- **шim `prime-agent` Popen не находит** (нет .exe) — мост запускает
+  `node <node_modules>/prime-agent/dist/bundle/cli.js --mode rpc ...`;
+- мост тянет `OPENCODE_API_KEY` из `.env` Hermes (`OPENCODE_ZEN_API_KEY`),
+  в PATH полагаться не нужно;
+- первый prompt разворачивает kernel-venv + Windows-pipe daemon
+  (~1 мин bootstrap), затем серия живёт в `~/.prime/agent/sessions/*.jsonl`;
+- остановить мост: `taskkill /F /PID <pid>` (или закрыть вкладку процесса).
+
 ## 10. Публикация на GitHub (Фаза 6 — подготовлено, ждёт сети и «го»)
 
 Сеть владельца на 2026-08-09: `api.github.com` отвечает (200), но `github.com`
