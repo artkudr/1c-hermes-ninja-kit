@@ -160,7 +160,48 @@ cmd /c opm.bat version  # → 1.4.1
 - уже открытые окружения (в т.ч. Hermes) подхватят PATH после перезапуска сессии —
   broadcast WM_SETTINGCHANGE отправляется, но Explorer перечитывает не всегда.
 
-## 9. Публикация на GitHub (Фаза 6 — подготовлено, ждёт сети и «го»)
+## 9. prime-agent — установка (Фаза B, проверено 2026-08-09)
+
+Нативный CLI-агент Prime Intellect (v0.7.1), ставится в глобальный Node
+(у нас — node Hermes, `C:\Users\<user>\AppData\Local\hermes\node`; bin уже в PATH).
+
+Особенности сети: `github.com` не резолвится, поэтому **ассеты релиза качаются
+в обход** — через `api.github.com` (он доступен; цепочка
+api.github.com → objects.githubusercontent.com не затрагивает github.com):
+
+```bash
+cd <downloads>
+# 1) id ассетов из релиза
+python - <<'PY'
+import json,urllib.request
+d=json.load(urllib.request.urlopen("https://api.github.com/repos/PrimeIntellect-ai/prime-agent/releases/latest"))
+for a in d["assets"]:
+    if a["name"].endswith(".tgz"): print(a["name"], a["id"])
+PY
+# 2) скачать (prime-agent-0.7.1.tgz и core/ai/tui) с Accept: application/octet-stream
+curl -sL -H "Accept: application/octet-stream" -o <имя>.tgz \
+  https://api.github.com/repos/PrimeIntellect-ai/prime-agent/releases/assets/<id>
+# 3) npm: разрешить remote-зависимости (иначе EALLOWREMOTE)
+npm config set allow-remote all
+# 4) установка: ретраи + verbose обязательны (сеть рвёт ECONNRESET при массовых загрузках),
+#    --ignore-scripts допустимо: бандл самодостаточен (chunk-файлы, подпакеты не нужны)
+npm i -g --ignore-scripts --loglevel=verbose --fetch-retries=4 \
+  "C:\...\prime-agent-0.7.1.tgz" "C:\...\prime-agent-core-0.7.1.tgz" \
+  "C:\...\prime-agent-ai-0.7.1.tgz" "C:\...\prime-agent-tui-0.7.1.tgz"
+# 5) проверка
+prime-agent --version   # → 0.7.1
+prime-agent --help
+```
+
+Грабли:
+- `npm config set allow-remote true` — **невалидное значение** (нужно `all|none|root`);
+- Node 22.8+ обязателен (в cli.js есть version-check);
+- авторизация провайдера — отдельно: prime-agent ждёт `OPENCODE_API_KEY`
+  (у Hermes тот же ключ лежит как `OPENCODE_ZEN_API_KEY` в `.env`);
+- при неверифицированной сети первый запуск агента может потребовать доступа
+  к недоступным хостам — проверять по фактическим ошибкам.
+
+## 10. Публикация на GitHub (Фаза 6 — подготовлено, ждёт сети и «го»)
 
 Сеть владельца на 2026-08-09: `api.github.com` отвечает (200), но `github.com`
 по HTTPS/DNS и git-remote **недоступны** → обычный push сейчас невозможен.
@@ -185,7 +226,7 @@ git push -u origin main
 #   gh repo create 1c-hermes-ninja-kit --private --source . --push
 ```
 
-## 10. Что НЕ сделано / требует сети
+## 11. Что НЕ сделано / требует сети
 
 - `yaxunit` — github.com/opm.one недоступны (см. §2).
 - Публикация в GitHub (Фаза 6) — только по отдельному «го».
