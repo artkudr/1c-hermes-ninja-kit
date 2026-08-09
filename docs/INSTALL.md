@@ -262,6 +262,9 @@ tail -c 2000 "C:/hemes/tools/run/pi-out.log"
   (get_state, steer, abort и т.д.);
 - **шim `prime-agent` Popen не находит** (нет .exe) — мост запускает
   `node <node_modules>/prime-agent/dist/bundle/cli.js --mode rpc ...`;
+- мост запускает node с `CREATE_NO_WINDOW` — иначе Windows рисует окно
+  консоли на каждый консольный процесс (node + daemon + worker = 3 мелькания
+  на запрос; проверено и устранено 2026-08-09);
 - мост тянет `OPENCODE_API_KEY` из `.env` Hermes (`OPENCODE_ZEN_API_KEY`),
   в PATH полагаться не нужно;
 - первый prompt разворачивает kernel-venv + Windows-pipe daemon
