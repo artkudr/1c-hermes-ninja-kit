@@ -271,6 +271,47 @@ tail -c 2000 "C:/hemes/tools/run/pi-out.log"
   (~1 мин bootstrap), затем серия живёт в `~/.prime/agent/sessions/*.jsonl`;
 - остановить мост: `taskkill /F /PID <pid>` (или закрыть вкладку процесса).
 
+### Режим фоновой службы (сессия 0 — ноль окон, проверено 2026-08-09)
+
+Даже с pythonw + CREATE_NO_WINDOW Windows Terminal открывает окно на каждую
+новую консоль воркера prime (daemon/worker/kernel) — мелькания видны.
+Радикальное решение: мост живёт как СЛУЖБА Windows в неинтерактивной
+сессии 0 — окнам физически негде появиться (проверено: запрос «Финляндия →
+Хельсинки» обработан, все процессы — SessionId 0).
+
+```bash
+# 1) один раз: NSSM (обёртка: берёт на себя контракт с SCM, иначе
+#    sc create даёт ошибку 1053 «служба не ответила своевременно»)
+winget install -e --id NSSM.NSSM
+
+# 2) установка службы — из-под админа (UAC-промпт):
+#    scripts/install-service.ps1 создаёт службу pi-bridge (NSSM):
+#    pythonw.exe + pi-bridge.py, AppDirectory C:/hemes,
+#    AppExit Default Restart (автоперезапуск при падении).
+#    Запуск из обычной сессии: UAC-обёртка (см. ниже).
+
+# 3) управление (из обычного терминала не работает — нужен админ):
+nssm status pi-bridge    # SERVICE_RUNNING
+nssm stop pi-bridge
+nssm start pi-bridge
+nssm remove pi-bridge confirm
+```
+
+Важно (сессия 0 = окружение LocalSystem, а не пользователя):
+- node/git/python в PATH службы ОТСУТСТВУЮТ → pi-bridge.py сам добавляет
+  каталоги (hermes/node, hermes/git, venv/Scripts) и запускает node по
+  абсолютному пути (node_exe). Без этого — FileNotFoundError (WinError 2).
+- daemon prime пишет лог в %systemprofile%\.prime (у LocalSystem это
+  C:\WINDOWS\system32\config\systemprofile) — не пугаться.
+- первый «холодный» старт daemon может не уложиться в 30-секундный таймаут
+  клиента (Timed out ... "create") — повторный запрос проходит.
+
+UAC-обёртка из обычной сессии:
+```bash
+powershell -NoProfile -Command "Start-Process powershell -Verb RunAs -Wait   -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File',  'C:\hemes\tools\scripts\install-service.ps1'"
+```
+Протокол установки — C:\hemes\tools\run\svc-install.log.
+
 ## 10. Публикация на GitHub (Фаза 6 — подготовлено, ждёт сети и «го»)
 
 Сеть владельца на 2026-08-09: `api.github.com` отвечает (200), но `github.com`
