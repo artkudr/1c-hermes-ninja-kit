@@ -60,7 +60,7 @@ cmd_new() {
   if [ -e "$BASE" ]; then fail "каталог $BASE уже существует"; fi
 
   say "Создание базы $NAME: $BASE"
-  mkdir -p "$BASE/src/cf" "$BASE/src/cfe" "$BASE/reports" "$BASE/notes"
+  mkdir -p "$BASE/src/cf" "$BASE/src/cfe" "$BASE/reports" "$BASE/notes" "$BASE/docs" "$BASE/tasks"
   touch "$BASE/src/cfe/.gitkeep"
 
   cp "$KIT_DIR/templates/bsl-language-server.json" "$BASE/.bsl-language-server.json"
@@ -76,6 +76,41 @@ cmd_new() {
 - Расширения: ${EXTS[*]:-—}
 
 > Версия типовой фиксируется ОДНОЙ строкой при выгрузке в src/cf.
+EOF
+
+  cat > "$BASE/notes/state.md" <<EOF
+# Координатор проекта: $NAME
+
+> Диск — источник истины, сессия — интерфейс к документации.
+> Детали задачи — в её карточке tasks/task_N/README.md.
+
+## Контур проекта
+
+| Параметр | Значение |
+|---|---|
+| База | $NAME |
+| Типовая | TBD (см. registry.md) |
+| Расширения | ${EXTS[*]:-нет} |
+| Анализатор | bslc (docker, srcDir = src/cfe/<Расширение>) |
+
+## Задачи — сводная таблица
+
+| Ключ | Название (рус.) | Статус | Папка | Открыта | Приоритет |
+|---|---|---|---|---|---|
+| _пока пусто_ | | | | | |
+
+Статусы: черновик → в работе → на проверке → готово → закрыто (+ заморожено).
+Ключ task_N — латиницей; он же имя папки и заголовок сессии Hermes.
+
+## Сейчас в работе
+
+- (нет)
+
+## Журнал проекта
+
+| Дата | Что произошло |
+|---|---|
+| $(date +%F) | База создана (ninja new), координатор заведён |
 EOF
 
   for e in "${EXTS[@]:-}"; do
@@ -94,6 +129,9 @@ EOF
   echo "  src/cf/    — выгрузка типовой (read-only, в git не хранится)"
   echo "  src/cfe/   — расширения: ${EXTS[*]:-пока нет (добавьте вручную или --ext)}"
   echo "  notes/registry.md — версия типовой (заполнить при выгрузке)"
+  echo "  notes/state.md    — координатор задач (таблица статусов, журнал)"
+  echo "  tasks/     — задачи: папка task_N/ на каждую (шаблон — templates/project/tasks/task_1)"
+  echo "  docs/      — общая документация (не по задачам)"
 }
 
 cmd_list() {

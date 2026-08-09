@@ -35,7 +35,7 @@ fail() { printf '\033[1;31m FAIL \033[0m %s\n' "$*"; exit 1; }
 has()  { command -v "$1" >/dev/null 2>&1; }
 
 if [ -z "$PROJECTS_ROOT" ]; then
-  read -r -p "Корневая папка проектов (например C:/hemes): " PROJECTS_ROOT
+  read -r -p "Корневая папка проектов (например C:/hermes): " PROJECTS_ROOT
 fi
 PROJECTS_ROOT="${PROJECTS_ROOT%/}"
 [ -n "$PROJECTS_ROOT" ] || fail "PROJECTS_ROOT не задан"

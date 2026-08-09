@@ -87,7 +87,7 @@ docker run --rm bslc:1.0.7 --help
 ## 4. Полный запуск и идемпотентность
 
 ```bash
-bash install/install.sh "C:/hemes"   # второй прогон ничего не меняет («уже есть»)
+bash install/install.sh "C:/hermes"   # второй прогон ничего не меняет («уже есть»)
 ```
 
 Повторный запуск подтвердил: все секции переходят в состояние «уже есть»
@@ -133,15 +133,15 @@ Docker-обёртка bslc (образ `bslc:1.0.7`): `--srcDir src/cfe/<рас�
 
 ## 8. oscript в USER PATH (Windows, без админ-прав; проверено 2026-08-09)
 
-По умолчанию `install.sh` ничего не меняет за пределами `C:\hemes`: движок живёт
-в `C:\hemes\tools\engine\oscript-2.1.0`, а сессии делают
-`export PATH="/c/hemes/tools/engine/oscript-2.1.0/bin:$PATH"`. Чтобы oscript/opm
+По умолчанию `install.sh` ничего не меняет за пределами `C:\hermes`: движок живёт
+в `C:\hermes\tools\engine\oscript-2.1.0`, а сессии делают
+`export PATH="/c/hermes/tools/engine/oscript-2.1.0/bin:$PATH"`. Чтобы oscript/opm
 были видны всем клиентам (IDE, prime-agent, любые терминалы) без ручного export,
 допишите `bin` в **USER PATH** (реестр HKCU — админ-права не нужны):
 
 ```bash
 CUR="$(reg query 'HKCU\Environment' /v Path 2>/dev/null | sed -n 's/^[[:space:]]*Path[[:space:]]*REG_[A-Z_]*[[:space:]]*//p')"
-NEW="${CUR:+$CUR;}C:\hemes\tools\engine\oscript-2.1.0\bin"
+NEW="${CUR:+$CUR;}C:\hermes\tools\engine\oscript-2.1.0\bin"
 reg add 'HKCU\Environment' /v Path /t REG_EXPAND_SZ /d "$NEW" /f
 ```
 
@@ -227,12 +227,12 @@ RPC работает поверх stdin/stdout (JSONL по LF, strip `\r`). Фа
 - `get_state` даёт модель/сессию (`~/.prime/agent/sessions/*.jsonl`);
 - сервер завершается по EOF stdin — держать stdin открытым (sleep-таймаут).
 
-Готовая обёртка one-shot: `C:\hemes\tools\scripts\pi.sh`
+Готовая обёртка one-shot: `C:\hermes\tools\scripts\pi.sh`
 (ключ берёт из `.env` Hermes, сама та же модель, таймаут по умолчанию 60 с):
 
 ```bash
-bash C:/hemes/tools/scripts/pi.sh "Сколько будет 7*6?"   # → 42
-bash C:/hemes/tools/scripts/pi.sh "переведи: hello world"  # → «привет мир»
+bash C:/hermes/tools/scripts/pi.sh "Сколько будет 7*6?"   # → 42
+bash C:/hermes/tools/scripts/pi.sh "переведи: hello world"  # → «привет мир»
 ```
 
 ### Делегирование задач из Hermes — файловая шина (проверено 2026-08-09)
@@ -250,16 +250,16 @@ bash C:/hemes/tools/scripts/pi.sh "переведи: hello world"  # → «пр�
 #    БОЕВОЙ вариант — служба Windows, см. раздел «Режим фоновой службы» ниже.
 #    pythonw.exe = GUI-вариант python: консольное окно не создаётся вообще.
 "C:/Users/artkudr/AppData/Local/hermes/hermes-agent/venv/Scripts/pythonw.exe" \
-  "C:/hemes/tools/scripts/pi-bridge.py"
+  "C:/hermes/tools/scripts/pi-bridge.py"
 #    (обычный python.exe тоже можно, но при каждом запуске мелькает окно)
 # 2) делегирование: пишем команду файлом
 echo '{"type":"prompt","id":"p1","message":"Текст задачи"}' \
-  > "C:/hemes/tools/run/pi-cmd/002-task.json"
+  > "C:/hermes/tools/run/pi-cmd/002-task.json"
 # 3) ответ — в логе (JSONL; финал: agent_end → content[].text):
-tail -c 2000 "C:/hemes/tools/run/pi-out.log"
+tail -c 2000 "C:/hermes/tools/run/pi-out.log"
 ```
 
-- каталоги: команды `C:/hemes/tools/run/pi-cmd/*.json` → после обработки
+- каталоги: команды `C:/hermes/tools/run/pi-cmd/*.json` → после обработки
   переезжают в `pi-cmd/.done/`; ответы и события — `pi-out.log` (append);
 - команды: `{"type":"prompt","id":N,"message":"..."}` — и любой RPC-набор
   (get_state, steer, abort и т.д.);
@@ -289,7 +289,7 @@ winget install -e --id NSSM.NSSM
 
 # 2) установка службы — из-под админа (UAC-промпт):
 #    scripts/install-service.ps1 создаёт службу pi-bridge (NSSM):
-#    pythonw.exe + pi-bridge.py, AppDirectory C:/hemes,
+#    pythonw.exe + pi-bridge.py, AppDirectory C:/hermes,
 #    AppExit Default Restart (автоперезапуск при падении).
 #    Запуск из обычной сессии: UAC-обёртка (см. ниже).
 
@@ -311,9 +311,9 @@ nssm remove pi-bridge confirm
 
 UAC-обёртка из обычной сессии:
 ```bash
-powershell -NoProfile -Command "Start-Process powershell -Verb RunAs -Wait   -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File',  'C:\hemes\tools\scripts\install-service.ps1'"
+powershell -NoProfile -Command "Start-Process powershell -Verb RunAs -Wait   -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File',  'C:\hermes\tools\scripts\install-service.ps1'"
 ```
-Протокол установки — C:\hemes\tools\run\svc-install.log.
+Протокол установки — C:\hermes\tools\run\svc-install.log.
 
 Автономность (после установки служба живёт сама):
 - при включении Windows служба стартует автоматически (start=auto);
@@ -327,7 +327,7 @@ powershell -NoProfile -Command "Start-Process powershell -Verb RunAs -Wait   -Ar
 - `scripts/pi-bridge.py`, `scripts/install-service.ps1`, `scripts/pi.sh`
   входят в репозиторий; перед установкой службы заменить в них
   `C:\Users\artkudr` на профиль нового пользователя (node.exe,
-  node_modules/prime-agent, .env с ключом) и `C:\hemes\tools` при ином корне.
+  node_modules/prime-agent, .env с ключом) и `C:\hermes\tools` при ином корне.
 - после чего два шага: `winget install -e --id NSSM.NSSM` и
   `install-service.ps1` из-под админа (UAC-обёртка выше).
 
@@ -337,15 +337,15 @@ powershell -NoProfile -Command "Start-Process powershell -Verb RunAs -Wait   -Ar
 по HTTPS/DNS и git-remote **недоступны** → обычный push сейчас невозможен.
 
 Подготовлено:
-- аудит содержимого чист (нет персональных путей/секретов; `C:/hemes` — только
+- аудит содержимого чист (нет персональных путей/секретов; `C:/hermes` — только
   как пример дефолта);
-- самодостаточный bundle всей истории: `C:\hemes\1c-hermes-ninja-kit.bundle`
+- самодостаточный bundle всей истории: `C:\hermes\1c-hermes-ninja-kit.bundle`
   (24 КБ, 6 коммитов, main, HEAD `b100c3a`); проверен `git bundle verify`.
 
 Когда сеть появится:
 ```bash
 # восстановление из bundle (на любой машине с git)
-git clone C:/hemes/1c-hermes-ninja-kit.bundle 1c-hermes-ninja-kit
+git clone C:/hermes/1c-hermes-ninja-kit.bundle 1c-hermes-ninja-kit
 cd 1c-hermes-ninja-kit && git remote remove origin   # bundle-клон создаёт origin
 
 # публикация (private)
