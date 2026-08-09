@@ -214,6 +214,27 @@ OPENCODE_API_KEY="$HKEY" prime-agent --mode json --provider opencode --model dee
 - при неверифицированной сети первый запуск агента может потребовать доступа
   к недоступным хостам — проверять по фактическим ошибкам.
 
+### RPC-режим и обёртка one-shot (проверено 2026-08-09)
+
+RPC работает поверх stdin/stdout (JSONL по LF, strip `\r`). Фактический протокол
+(сверен по коду бандла, не по докам):
+- команда: `{"type":"prompt","id":"1","message":"..."}` — поле **`message`**,
+  а не `prompt` (иначе `success:false`, `Cannot read properties of undefined`);
+- ответ на команду: `{"id":"1","type":"response","command":"prompt","success":true}`;
+- события потока: `agent_start → turn_start → message_start/update/end →
+  turn_end → agent_end`; текст ассистента — `message_end` с `role:"assistant"`,
+  конкатенация `content[].text`;
+- `get_state` даёт модель/сессию (`~/.prime/agent/sessions/*.jsonl`);
+- сервер завершается по EOF stdin — держать stdin открытым (sleep-таймаут).
+
+Готовая обёртка one-shot: `C:\hemes\tools\scripts\pi.sh`
+(ключ берёт из `.env` Hermes, сама та же модель, таймаут по умолчанию 60 с):
+
+```bash
+bash C:/hemes/tools/scripts/pi.sh "Сколько будет 7*6?"   # → 42
+bash C:/hemes/tools/scripts/pi.sh "переведи: hello world"  # → «привет мир»
+```
+
 ## 10. Публикация на GitHub (Фаза 6 — подготовлено, ждёт сети и «го»)
 
 Сеть владельца на 2026-08-09: `api.github.com` отвечает (200), но `github.com`
