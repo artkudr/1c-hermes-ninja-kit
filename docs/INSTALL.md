@@ -131,7 +131,32 @@ Docker-обёртка bslc (образ `bslc:1.0.7`): `--srcDir src/cfe/<рас�
 - `bash scripts/ninja.sh scan` — обход `PROJECTS_ROOT`: выявляет базы на диске
   (`<имя>/src/cfe`), в т.ч. НЕ зарегистрированные (с подсказкой команды добавления).
 
-## 8. Что НЕ сделано / требует сети
+## 9. Публикация на GitHub (Фаза 6 — подготовлено, ждёт сети и «го»)
+
+Сеть владельца на 2026-08-09: `api.github.com` отвечает (200), но `github.com`
+по HTTPS/DNS и git-remote **недоступны** → обычный push сейчас невозможен.
+
+Подготовлено:
+- аудит содержимого чист (нет персональных путей/секретов; `C:/hemes` — только
+  как пример дефолта);
+- самодостаточный bundle всей истории: `C:\hemes\1c-hermes-ninja-kit.bundle`
+  (24 КБ, 6 коммитов, main, HEAD `b100c3a`); проверен `git bundle verify`.
+
+Когда сеть появится:
+```bash
+# восстановление из bundle (на любой машине с git)
+git clone C:/hemes/1c-hermes-ninja-kit.bundle 1c-hermes-ninja-kit
+cd 1c-hermes-ninja-kit && git remote remove origin   # bundle-клон создаёт origin
+
+# публикация (private)
+git remote add origin git@github.com:<owner>/1c-hermes-ninja-kit.git
+git push -u origin main
+# или через gh CLI (когда установлен и авторизован):
+#   winget install GitHub.cli && gh auth login
+#   gh repo create 1c-hermes-ninja-kit --private --source . --push
+```
+
+## 10. Что НЕ сделано / требует сети
 
 - `yaxunit` — github.com/opm.one недоступны (см. §2).
 - Публикация в GitHub (Фаза 6) — только по отдельному «го».
