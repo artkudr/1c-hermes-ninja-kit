@@ -244,8 +244,11 @@ bash C:/hemes/tools/scripts/pi.sh "переведи: hello world"  # → «пр�
 ответы — в лог.
 
 ```bash
-# 1) запуск моста (держит prime-agent --mode rpc в фоне)
-python "C:/hemes/tools/scripts/pi-bridge.py"
+# 1) запуск моста (держит prime-agent --mode rpc в фоне, БЕЗ окон):
+#    pythonw.exe = GUI-вариант python: консольное окно не создаётся вообще.
+"C:/Users/artkudr/AppData/Local/hermes/hermes-agent/venv/Scripts/pythonw.exe" \
+  "C:/hemes/tools/scripts/pi-bridge.py"
+#    (обычный python.exe тоже можно, но при каждом запуске мелькает окно)
 # 2) делегирование: пишем команду файлом
 echo '{"type":"prompt","id":"p1","message":"Текст задачи"}' \
   > "C:/hemes/tools/run/pi-cmd/002-task.json"
