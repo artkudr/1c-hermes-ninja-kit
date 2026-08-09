@@ -131,6 +131,35 @@ Docker-обёртка bslc (образ `bslc:1.0.7`): `--srcDir src/cfe/<рас�
 - `bash scripts/ninja.sh scan` — обход `PROJECTS_ROOT`: выявляет базы на диске
   (`<имя>/src/cfe`), в т.ч. НЕ зарегистрированные (с подсказкой команды добавления).
 
+## 8. oscript в USER PATH (Windows, без админ-прав; проверено 2026-08-09)
+
+По умолчанию `install.sh` ничего не меняет за пределами `C:\hemes`: движок живёт
+в `C:\hemes\tools\engine\oscript-2.1.0`, а сессии делают
+`export PATH="/c/hemes/tools/engine/oscript-2.1.0/bin:$PATH"`. Чтобы oscript/opm
+были видны всем клиентам (IDE, prime-agent, любые терминалы) без ручного export,
+допишите `bin` в **USER PATH** (реестр HKCU — админ-права не нужны):
+
+```bash
+CUR="$(reg query 'HKCU\Environment' /v Path 2>/dev/null | sed -n 's/^[[:space:]]*Path[[:space:]]*REG_[A-Z_]*[[:space:]]*//p')"
+NEW="${CUR:+$CUR;}C:\hemes\tools\engine\oscript-2.1.0\bin"
+reg add 'HKCU\Environment' /v Path /t REG_EXPAND_SZ /d "$NEW" /f
+```
+
+Проверка (имитация свежей сессии — Machine+User PATH):
+```powershell
+$env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')
+oscript -version        # → 2.1.0
+cmd /c opm.bat version  # → 1.4.1
+```
+
+Грабли:
+- **НЕ используйте `setx` или `[Environment]::SetEnvironmentVariable`** — они
+  пишут `REG_SZ` и ломают разворачивание `%SystemRoot%` в существующем Path;
+  нужен `reg add /t REG_EXPAND_SZ`;
+- команда идемпотентна (проверяет наличие oscript в значении);
+- уже открытые окружения (в т.ч. Hermes) подхватят PATH после перезапуска сессии —
+  broadcast WM_SETTINGCHANGE отправляется, но Explorer перечитывает не всегда.
+
 ## 9. Публикация на GitHub (Фаза 6 — подготовлено, ждёт сети и «го»)
 
 Сеть владельца на 2026-08-09: `api.github.com` отвечает (200), но `github.com`
