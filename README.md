@@ -17,6 +17,8 @@
    - opm-пакеты (`sql`, `autumn`, `autumn-mcp`); `yaxunit` — отдельно из git;
    - docker-образ bslc: официальный ghcr → если недоступен, локальный образ
      из exec-jar с Maven Central (`install/bslc/Dockerfile`, Java только в контейнере);
+   - статический контур mcp-1c (lekot): oscript-сервер поиска по выгрузке +
+     справки SQLite (5 инструментов, без живой сессии 1С) — `install/install-mcp1c.sh`;
    - создаётся `C:/hermes/tools/` (всё не-докерное: `.env`, `projects.json`, движки).
 3. Повторный запуск безопасен — скрипт идемпотентный.
 
@@ -46,6 +48,28 @@ hermes mcp add 1c-toolkit --url http://127.0.0.1:6003/mcp   # ответы: n, y
 `curl -X POST http://localhost:6003/api/get_metadata -H "Content-Type: application/json" -d '{}'`.
 Подробности (переменные, каналы, анонимизация) — в `docs/INSTALL.md` §12 и
 `docs/DECISIONS.md`.
+
+## Статический контур (lekot/mcp-1c) — поиск по выгрузке без живой сессии
+
+oscript-сервер поверх выгрузки конфигурации: работает всегда, не требует базы,
+пароля и Docker. Даёт агенту 5 инструментов Hermes (`mcp__mcp1c__*`):
+
+| Инструмент | Что делает |
+|---|---|
+| `bsl_search` | поиск текста/регэкспа по BSL-модулям выгрузки (src/cf, src/cfe/...) |
+| `read_module` | чтение одного модуля (или список методов) |
+| `xml_search` | поиск по XML-метаданным выгрузки |
+| `config_list` | обход структуры конфигурации |
+| `syntax_help_search` | справка синтакс-помощника 1С из SQLite (6 МБ в репо сервера) |
+
+```bash
+bash install/install-mcp1c.sh "C:/hermes"   # идемпотентно; --force — переустановка
+hermes mcp test mcp-1c                       # ✓ Connected, ✓ Tools discovered: 5
+```
+
+Сервер живёт в `tools/mcp-1c` (build из репозитория lekot/mcp-1c: `main.os` +
+`src/` + `shcntx_help.db`). После установки — **переоткрыть Hermes** (инструменты
+появляются в новой сессии). Подробности и грабли — `docs/INSTALL.md` §13.
 
 ## Работа с базами
 

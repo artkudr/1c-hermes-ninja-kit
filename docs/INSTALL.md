@@ -464,9 +464,83 @@ curl -s -X POST http://localhost:6003/api/get_bsl_syntax_help $J \
 - `get_bsl_syntax_help` требует Native-компоненту `SyntaxHelpReader` из EPF:
   на x86-клиенте — только `MCP_Toolkit_x86.epf`. Если компонента не поднялась,
   инструмент отвечает `SyntaxHelpReader не загружен` (не критично: справку
-  закрывает контур C через lekot/autumn-mcp, см. план 06).
+  закрывает статический контур lekot/mcp-1c, уже развёрнут — §13).
 - Обработка живёт, пока открыта сессия 1С (окно/вход). Закрыл 1С — мост без
   получателя; прокси остаётся healthy, команды истекают по `TIMEOUT`.
 - Несколько dev-баз одновременно — разные каналы (`channel=<имя>`), один прокси.
 - SQL-инъекций нет, но `execute_query` исполняет произвольные запросы в контексте
   базы — это dev-инструмент; политика доступа — на владельце сессии 1С.
+
+## 13. Статический контур: lekot/mcp-1c (проверено 2026-08-10)
+
+Разворачивается установщиком `install/install-mcp1c.sh` (вызывается и из
+`install.sh`, шаг 6). Сервер: `oscript tools/mcp-1c/main.os` (stdio/JSON-RPC),
+build из репозитория `github.com/lekot/mcp-1c` (ветка `main`): `main.os` +
+`src/` + `shcntx_help.db` (6 МБ, SQLite-справка синтакс-помощника — экспорт из
+1С НЕ нужен, БД лежит в репо). Контур работает БЕЗ живой сессии 1С, Docker и
+сети; инструменты Hermes `mcp__mcp1c__*` (5 шт.): `bsl_search`, `xml_search`,
+`config_list`, `read_module`, `syntax_help_search`.
+
+### 13.1 Установка (идемпотентная, повторный запуск безопасен)
+
+```bash
+bash install/install-mcp1c.sh "C:/hermes"        # скачать/распаковать + регистрация
+bash install/install-mcp1c.sh "C:/hermes" --force  # переустановка с нуля
+hermes mcp test mcp-1c        # ✓ Connected (≈0.5 с), ✓ Tools discovered: 5
+```
+
+Скрипт делает: (1) качает `mcp-1c-main.zip`, распаковывает в
+`tools/mcp-1c` (python zipfile; структура архива `mcp-1c-main/...`);
+(2) `hermes mcp add mcp-1c --command oscript --args <tools>\mcp-1c\main.os`;
+(3) `hermes config set mcp_servers.mcp-1c.env.SHCNTX_HELP_DB <путь к shcntx_help.db>`.
+
+### 13.2 ГРАБЛИ (все проверены исполнением)
+
+1. **cwd-баг `syntax_help_search`** — `main.os` резолвит путь к БД справки от
+   **каталога запуска** (oscript НЕ кладёт путь к скрипту в
+   `АргументыКоманднойСтроки` — `ПутьСкрипта` остаётся `"main.os"`, а
+   `Файл(...).ПолноеИмя` считается от cwd). Hermes стартует stdio-серверы из
+   домашней папки пользователя → без фикса справка падает:
+   `База справки не найдена: C:/Users/<user>/src/data/shcntx_help.db`.
+   **Фикс: env `SHCNTX_HELP_DB`** в конфиге сервера (handler читает окружение
+   первым). Без перезапуска Hermes env не подхватится (инструменты из новой
+   сессии; процесс старого сервера уже живёт без env).
+2. **`hermes mcp add` — `--args` ДОЛЖЕН быть последним**: всё, что после
+   `--args ...`, попадает в аргументы сервера (`--connect-timeout 60` станет
+   вторым аргументом oscript и сломает старт). Таймауты дописываем отдельно:
+   `hermes config set mcp_servers.mcp-1c.connect_timeout 60`.
+3. **`hermes mcp add` интерактивен**: промпт «Enable all 5 tools?» —
+   закрывается подачей `printf 'Y\n' |`.
+4. **Инструменты появляются только в новой сессии** Hermes (как и с
+   1c-toolkit, §12.3): после регистрации/правки конфига — переоткрыть Hermes.
+5. **Не нужен opm**: зип-дистрибутив oscript уже содержит `lib/sql`
+   (и `lib/opm`, `lib/autumn`, `lib/autumn-mcp`) — `syntax_help_search`
+   работает из коробки; `opm.bat` может отсутствовать в bash-PATH (bat-файл),
+   для MCP это не важно.
+
+### 13.3 Проверка (живые вызовы через SDK/инструменты)
+
+```bash
+# SDK-прогон (cwd любой): bsl_search + read_module + syntax_help_search
+cd /c/Users/<user> && python - <<'PY'
+import asyncio
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
+async def m():
+    p = StdioServerParameters(command='oscript',
+        args=[r'C:\hermes\tools\mcp-1c\main.os'],
+        env={'SHCNTX_HELP_DB': r'C:\hermes\tools\mcp-1c\src\data\shcntx_help.db'})
+    async with stdio_client(p) as (r, w):
+        async with ClientSession(r, w) as s:
+            await s.initialize()
+            x = await s.call_tool('syntax_help_search', {'query': 'ТаблицаЗначений'})
+            print('isError:', x.isError)
+            print(''.join(c.text if hasattr(c,'text') else str(c) for c in x.content)[:150])
+asyncio.run(m())
+PY
+```
+
+В Hermes-сессии после переоткрытия: `mcp__mcp_1c__bsl_search` ищет по
+`src/cfe/<Расширение>` (кириллические пути работают), `read_module` читает
+модуль целиком по пути (`C:\...\Ext\Form\Module.bsl`), `config_list` обходит
+структуру расширения, `xml_search` находит объекты в XML-метаданных.
