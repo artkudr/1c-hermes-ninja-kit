@@ -2,6 +2,32 @@
 
 > Обновляется вместе с изменениями. Дата + причина.
 
+## 2026-08-10
+
+- **Живой мост в 1С — 1c-mcp-toolkit ROCTUP на :6003 (прокси-режим).**
+  Образ `roctup/1c-mcp-toolkit-proxy` есть в Docker Hub (в отличие от ghcr.io —
+  см. bslc ниже это тоже важно). Прокси поднят как контейнер с
+  `--restart unless-stopped` и `ALLOW_DANGEROUS_WITH_APPROVAL=true`:
+  `execute_code`/`close_1c_session` доступны только с подтверждением, read-only
+  инструменты (query/metadata/event log/rights/links/syntax help) — свободно.
+  Схема: агент → прокси :6003 → long-polling `/1c/poll?channel=...` → обработка
+  `MCP_Toolkit.epf` в живой сессии 1С.
+- **Обработку на x86-платформе берём `MCP_Toolkit_x86.epf`**, а не базовую —
+  Native-компоненты (`SyntaxHelpReader`, `ScreenCapture`) собираются под
+  разрядность клиента; на `C:\Program Files (x86)\1cv8\...` x86-версия
+  обязательна (иначе `get_bsl_syntax_help` отвечает `SyntaxHelpReader не загружен`).
+- **Вход в 1С — только вручную.** Пароль dev-базы не храним в конфигах/скриптах/
+  .env: сессия стартует с `/C "startup;mode=proxy;..."`, но пароль набирает
+  владелец в диалоге входа (см. INSTALL.md §12.2).
+- **Скиллы тулкита копируем в навыки Hermes как есть**
+  (`calling-1c-rest-api-via-curl`, `composing-1c-queries`) — они уже в формате
+  SKILL.md и покрывают 12 REST-эндпоинтов; дублировать их в ките не нужно.
+- **Контур C (справка BSL) частично закрыт мостом** (`get_bsl_syntax_help`
+  из живой базы). Внешний SQL-контур (lekot → autumn-mcp) не обязателен, если
+  мост поднят; решение по полному контуру C — по симптом-гейту (см. план 06).
+- **rlm-tools-bsl :9000 — резерв и НЕ ставим**, пока мост (→ MCP) покрывает
+  потребность (см. план 06, Этап 1 vs резервы).
+
 ## 2026-08-09
 
 - **oscript ставим НЕ через winget.** Пакет `OneScript.OneScript` в winget-каталоге

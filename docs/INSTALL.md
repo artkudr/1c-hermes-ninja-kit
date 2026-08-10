@@ -104,8 +104,14 @@ bash scripts/ninja.sh new demo-bp --ext DataExchange --ext PrintForms
 `.bsl-language-server.json`, `AGENTS.md` (из `templates/AGENTS.md.tpl`),
 `.gitignore` базы, `git init -b main`. Регистрирует базу в `tools/projects.json`.
 
+**ОБЯЗАТЕЛЬНО после создания базы:** создать desktop-проект Hermes и привязать
+его к папке базы (`project_create {name, path}`), проверить `pwd` = корень
+базы. Без этой привязки база не работает как проект Hermes (переключение между
+базами — `project_switch`, не `cd`; правила — `docs/CONVENTIONS.md`).
+
 Грабли:
-- имена баз/расширений валидируются (только латиница/цифры/`-_`);
+- имя БАЗЫ валидируется (только латиница/цифры/`-_`); имена РАСШИРЕНИЙ — как
+  в 1С (кириллица допустима), запрещены только `/` и `\`;
 - повторное создание при существующем каталоге — ошибка;
 - json-реестр ведёт `scripts/ninja_json.py` (python на Windows не понимает
   MSYS-пути — все пути передаются в Windows-форме через `cygpath -w`).
@@ -361,3 +367,104 @@ git push -u origin main
 - `yaxunit` — github.com/opm.one недоступны (см. §2).
 - Публикация в GitHub (Фаза 6) — только по отдельному «го».
 - CI (.github/workflows) — отложено, до git-флоу.
+
+## 12. Живой мост в 1С: 1c-mcp-toolkit на :6003 (проверено 2026-08-10)
+
+Мост = Docker-прокси + обработка `MCP_Toolkit.epf` внутри живой dev-сессии 1С.
+Агент (Hermes MCP / curl REST) ходит в прокси на `:6003`, прокси передаёт команды
+в сессию 1С long-polling-ом (`/1c/poll?channel=<канал>`), обработка исполняет их
+в контексте базы. Даёт: `execute_query`, `get_metadata`, `get_event_log`,
+`get_access_rights`, `get_object_by_link`, `find_references_to_object`,
+`get_bsl_syntax_help`, `execute_code` (с подтверждением), скриншот окна,
+управление сессией. Read-only операций достаточно для контуров A/B/C: справка BSL
+приходит прямо из живой базы (`get_bsl_syntax_help`) — внешний SQL-контур (lekot)
+можно не поднимать.
+
+### 12.1 Прокси (Docker)
+
+```bash
+# образ из Docker Hub (впервые — скачается); повторный запуск идемпотентен
+docker run -d --name 1c-mcp-toolkit-proxy \
+  -p 6003:6003 \
+  -e ALLOW_DANGEROUS_WITH_APPROVAL=true \
+  -e TIMEOUT=180 \
+  --restart unless-stopped \
+  roctup/1c-mcp-toolkit-proxy
+```
+
+Полезные переменные (дефолты из образа):
+- `PORT=6003`; `TIMEOUT=180` (сек, время жизни команды в очереди);
+- `RESPONSE_FORMAT=toon` (компактный; `json` — читаемый);
+- `ANONYMIZATION_ENABLED=false` (маскирование перс. данных в ответах);
+- `ALLOW_DANGEROUS_WITH_APPROVAL=true` — `execute_code`/`close_1c_session`
+  требуют подтверждающего запроса (без этого флага опасные инструменты
+  отключены вовсе — для read-only контуров так даже правильнее).
+
+Проверка: `curl http://localhost:6003/health` → `{status: healthy, ...}`.
+
+### 12.2 Сессия 1С с обработкой (вход — вручную, пароль не храним)
+
+EPF отдаёт и обычный `MCP_Toolkit.epf`, и `MCP_Toolkit_x86.epf` (для тонкого
+клиента x86 — Native-компоненты справки/скриншота собираются под разрядность).
+На x86-платформе (как у нас: `C:\Program Files (x86)\1cv8\...`) брать **x86**-версию.
+
+```bash
+"/c/Program Files (x86)/1cv8/8.3.27.2130/bin/1cv8.exe" ENTERPRISE \
+  /F "C:\1C\bases\qbik-dev" \
+  /Execute "C:\hermes\tools\run\1c-mcp-toolkit\build\MCP_Toolkit_x86.epf" \
+  /C "startup;mode=proxy;url=http://localhost:6003;channel=default"
+```
+
+Порядок (проверено): запуск → диалог входа (пользователь вводит пароль сам;
+если `Start-Process` — окно 1С открывается, это ожидаемо) → вопрос об открытии
+внешней обработки → «Да» → обработка сама подключается к прокси
+(`/C startup;mode=proxy`).
+
+Проверка связки: `curl http://localhost:6003/health` →
+`active_sessions_count ≥ 1`; в логах контейнера —
+`GET /1c/poll?channel=default HTTP/1.1" 204`.
+
+### 12.3 Подключение к Hermes (MCP)
+
+```bash
+hermes mcp add 1c-toolkit --url http://127.0.0.1:6003/mcp --connect-timeout 20
+# интерактив: «Does this server require authentication?» → n
+#             «Enable all 12 tools?» → y
+```
+Появляется 12 инструментов `mcp__1ctoolkit__*`; работает только в НОВОЙ сессии.
+
+### 12.4 Проверка через REST (curl)
+
+```bash
+J='-H Content-Type:application/json'
+# метаданные базы (что есть)
+curl -s -X POST http://localhost:6003/api/get_metadata $J -d '{"types":["Справочник"],"limit":5}'
+# живые данные
+curl -s -X POST http://localhost:6003/api/execute_query $J \
+  -d '{"query":"ВЫБРАТЬ ПЕРВЫЕ 3 Ссылка, Код, Наименование ИЗ Справочник.Контрагенты"}'
+# журнал регистрации
+curl -s -X POST http://localhost:6003/api/get_event_log $J -d '{"limit":2}'
+# справка BSL (keywords — массив)
+curl -s -X POST http://localhost:6003/api/get_bsl_syntax_help $J \
+  -d '{"keywords":["Запрос","Выполнить"],"limit":2}'
+```
+
+### 12.5 Готовые скиллы для агентов
+
+Из репозитория тулкита скопированы в навыки Hermes (категория `1c`):
+- `calling-1c-rest-api-via-curl` — вызовы `/api/*` через curl (12 эндпоинтов,
+  фичи: каналы, таймауты, форматы);
+- `composing-1c-queries` — как писать корректные запросы для `execute_query`
+  (функции/выражения, подводные камни).
+
+### 12.6 Известные ограничения
+
+- `get_bsl_syntax_help` требует Native-компоненту `SyntaxHelpReader` из EPF:
+  на x86-клиенте — только `MCP_Toolkit_x86.epf`. Если компонента не поднялась,
+  инструмент отвечает `SyntaxHelpReader не загружен` (не критично: справку
+  закрывает контур C через lekot/autumn-mcp, см. план 06).
+- Обработка живёт, пока открыта сессия 1С (окно/вход). Закрыл 1С — мост без
+  получателя; прокси остаётся healthy, команды истекают по `TIMEOUT`.
+- Несколько dev-баз одновременно — разные каналы (`channel=<имя>`), один прокси.
+- SQL-инъекций нет, но `execute_query` исполняет произвольные запросы в контексте
+  базы — это dev-инструмент; политика доступа — на владельце сессии 1С.
