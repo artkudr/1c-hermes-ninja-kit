@@ -337,18 +337,21 @@ powershell -NoProfile -Command "Start-Process powershell -Verb RunAs -Wait   -Ar
 - после чего два шага: `winget install -e --id NSSM.NSSM` и
   `install-service.ps1` из-под админа (UAC-обёртка выше).
 
-## 10. Публикация на GitHub (Фаза 6 — подготовлено, ждёт сети и «го»)
+## 10. Публикация на GitHub (Фаза 6 — ВЫПОЛНЕНО 2026-08-10)
 
-Сеть владельца на 2026-08-09: `api.github.com` отвечает (200), но `github.com`
-по HTTPS/DNS и git-remote **недоступны** → обычный push сейчас невозможен.
+Репозиторий опубликован: **`github.com/artkudr/1c-hermes-ninja-kit`** (private, ветка
+`main`). Сеть, где github.com ранее был недоступен (запись от 2026-08-09 ниже),
+на 2026-08-10 открылась — `git ls-remote https://github.com/...` проходит.
 
-Подготовлено:
-- аудит содержимого чист (нет персональных путей/секретов; `C:/hermes` — только
-  как пример дефолта);
-- самодостаточный bundle всей истории: `C:\hermes\1c-hermes-ninja-kit.bundle`
-  (24 КБ, 6 коммитов, main, HEAD `b100c3a`); проверен `git bundle verify`.
+Как публиковали (на будущее — для нового репо):
+1. Создать private-репо через API (gh CLI не обязателен, токен из
+   `~/.git-credentials`): `POST /user/repos` `{"name": ..., "private": true}`.
+2. `git remote add origin https://github.com/<user>/<repo>.git`
+3. `git push -u origin main`
 
-Когда сеть появится:
+Запасной вариант (использовался, пока сеть была закрыта): самодостаточный bundle
+всей истории `C:\hermes\1c-hermes-ninja-kit.bundle` — восстановление см. ниже.
+После публикации bundle можно не обновлять (репо живёт на GitHub).
 ```bash
 # восстановление из bundle (на любой машине с git)
 git clone C:/hermes/1c-hermes-ninja-kit.bundle 1c-hermes-ninja-kit
@@ -365,7 +368,6 @@ git push -u origin main
 ## 11. Что НЕ сделано / требует сети
 
 - `yaxunit` — github.com/opm.one недоступны (см. §2).
-- Публикация в GitHub (Фаза 6) — только по отдельному «го».
 - CI (.github/workflows) — отложено, до git-флоу.
 
 ## 12. Живой мост в 1С: 1c-mcp-toolkit на :6003 (проверено 2026-08-10)
