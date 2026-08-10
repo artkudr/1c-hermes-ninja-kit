@@ -10,7 +10,8 @@
 #    https://oscript.io/api/archive/latest) в {PROJECTS_ROOT}/tools/engine/ —
 #    без UAC, без Program Files, всё в папке проектов;
 #  - opm-пакеты ставятся в движок (права не нужны);
-#  - анализатор кода: статический контур mcp-1c (LSP-серверы не ставим).
+#  - анализатор кода: статический контур mcp-1c (LSP-серверы не ставим);
+#  - LLM-ядро: 1c-buddy (шлюз к 1С:Напарник) — MCP-only, порт 127.0.0.1:6002.
 # ============================================================
 set -euo pipefail
 
@@ -103,8 +104,8 @@ fi
 
 # ---------- 4. opm-пакеты ----------
 if [ -n "$OPM_EXE" ]; then
-  say "Установка opm-пакетов (sql, autumn, autumn-mcp, yaxunit)..."
-  for pkg in sql autumn autumn-mcp yaxunit; do
+  say "Установка opm-пакетов (sql, autumn, autumn-mcp)..."
+  for pkg in sql autumn autumn-mcp; do
     if "$OPM_EXE" list 2>/dev/null | grep -qi "^${pkg}[[:space:]]"; then
       ok "opm: $pkg уже установлен"
     else
@@ -112,10 +113,8 @@ if [ -n "$OPM_EXE" ]; then
         || warn "opm: $pkg не установился"
     fi
   done
-  # yaxunit ставится отдельно из git (в реестре opm иногда отсутствует,
-  # а github.com/opm.one из некоторых сетей недоступны):
-  #   opm install https://github.com/xDrivenDevelopment/yaxunit
-  say "Примечание: yaxunit (тесты) — opm install https://github.com/xDrivenDevelopment/yaxunit, когда сеть позволит"
+  # yaxunit (тесты BSL) — СНЯТ с базового набора 2026-08-10 (решение владельца);
+  # при необходимости вернуть: opm install https://github.com/xDrivenDevelopment/yaxunit
 fi
 
 # ---------- 5. Статический контур mcp-1c (lekot) ----------
@@ -124,6 +123,14 @@ if command -v hermes >/dev/null 2>&1; then
   bash "$KIT_DIR/install/install-mcp1c.sh" "$PROJECTS_ROOT" || warn "mcp-1c: установка прервана (см. лог)"
 else
   warn "hermes CLI не найден — статический контур mcp-1c пропущен; после установки Hermes: bash install/install-mcp1c.sh \"$PROJECTS_ROOT\""
+fi
+
+# ---------- 6. LLM-ядро: 1c-buddy (1С:Напарник) ----------
+if command -v hermes >/dev/null 2>&1; then
+  say "LLM-ядро 1c-buddy (1С:Напарник)..."
+  bash "$KIT_DIR/install/install-buddy.sh" "$PROJECTS_ROOT" || warn "1c-buddy: установка прервана (см. лог — обычно не заполнен ONEC_AI_TOKEN в $TOOLS/.env)"
+else
+  warn "hermes CLI не найден — 1c-buddy пропущен; после установки Hermes: bash install/install-buddy.sh \"$PROJECTS_ROOT\""
 fi
 
 # ---------- итог ----------

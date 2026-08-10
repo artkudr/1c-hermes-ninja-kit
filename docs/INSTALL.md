@@ -332,7 +332,8 @@ git push -u origin main
 
 ## 11. Что НЕ сделано / требует сети
 
-- `yaxunit` — github.com/opm.one недоступны (см. §2).
+- `yaxunit` (тесты BSL) — **снят с плана 2026-08-10** (опция; при
+  необходимости: `opm install https://github.com/xDrivenDevelopment/yaxunit`).
 - CI (.github/workflows) — отложено, до git-флоу.
 
 ## 12. Живой мост в 1С: 1c-mcp-toolkit на :6003 (проверено 2026-08-10)
@@ -509,3 +510,80 @@ PY
 `src/cfe/<Расширение>` (кириллические пути работают), `read_module` читает
 модуль целиком по пути (`C:\...\Ext\Form\Module.bsl`), `config_list` обходит
 структуру расширения, `xml_search` находит объекты в XML-метаданных.
+
+## 14. LLM-ядро: 1c-buddy (1С:Напарник) на :6002 (проверено 2026-08-10)
+
+Разворачивается установщиком `install/install-buddy.sh` (вызывается и из
+`install.sh`, шаг 6). Поднимает контейнер `roctup/1c-buddy` — HTTP-шлюз к
+сервису 1С:Напарник (code.1c.ai): MCP (`POST /mcp`), веб-чат (`/chat`) и
+опционально OpenAI-совместимый `/v1`. **Мы используем только MCP** — 8
+инструментов Hermes `mcp__1c_buddy__*`; `/v1` не включаем (решение «только
+MCP»: мозг Hermes не меняем, см. DECISIONS.md).
+
+Инструменты:
+
+| Инструмент | Что делает |
+|---|---|
+| `ask_1c_ai` | общий вопрос по платформе и практическим сценариям |
+| `explain_1c_syntax` | объяснение объекта/метода/конструкции платформы |
+| `check_1c_code` | проверка BSL: синтаксис или code review |
+| `modify_1c_code` | правка BSL по явному заданию |
+| `search_1c_documentation` | поиск по документации платформы 1С |
+| `search_its` | поиск по базе знаний ИТС (embedding) |
+| `fetch_its` | чтение документа/раздела ИТС по id (id отдаёт `search_its`) |
+| `diff_1c_documentation_versions` | сравнение документации платформы между версиями |
+
+### 14.1 Установка (идемпотентная, повторный запуск безопасен)
+
+```bash
+bash install/install-buddy.sh "C:/hermes"        # токен — из tools/.env (ONEC_AI_TOKEN)
+bash install/install-buddy.sh "C:/hermes" --force  # пересоздать контейнер с нуля
+hermes mcp test 1c-buddy        # ✓ Connected, ✓ Tools discovered: 8
+```
+
+Требования: Docker Desktop запущен, `hermes` CLI в PATH, в `tools/.env`
+заполнен `ONEC_AI_TOKEN` (бесплатно: https://code.1c.ai). Токен также можно
+держать отдельным файлом `tools/run/buddy.env` (строка `ONEC_AI_TOKEN=...`) —
+скрипт подхватит его с приоритетом.
+
+Скрипт делает: (1) проверяет токен; (2) `docker run -d --name 1c-buddy
+--restart unless-stopped -p 127.0.0.1:6002:6002 --env-file <файл токена>
+roctup/1c-buddy`; (3) ждёт `/health` и делает MCP-рукопожатие (initialize);
+(4) `hermes mcp add 1c-buddy --url http://localhost:6002/mcp`.
+
+### 14.2 ГРАБЛИ (все проверены исполнением)
+
+1. **`--env-file` принимает ТОЛЬКО Windows-путь.** git-bash транслирует
+   `C:/…` в `/c/…`, docker.exe падает: `docker: --env-file: open
+   /c/hermes/tools/run/buddy.env: The system cannot find the path specified`.
+   Лечим `cygpath -w` (установщик делает это сам).
+2. **`hermes mcp add` для HTTP-сервера задаёт ДВА промпта**: «Does this server
+   require authentication?» → `n` и «Enable all 8 tools?» → `Y`. Закрываем
+   `printf 'n\nY\n' |` (одиночный `Y` провалит первый промпт — сервер будет
+   помечен как требующий auth).
+3. **В `/mcp` и веб-чате аутентификации НЕТ** — порт публикуем только на
+   `127.0.0.1` (`-p 127.0.0.1:6002:6002`); дефолтный `-p 6002:6002` открывает
+   порт на все интерфейсы. Наружу не выставлять.
+4. **ТоС code.1c.ai**: API по пользовательскому соглашению предназначено для
+   работы из 1С:EDT; сторонний вызов соглашением не предусмотрен. Напарник
+   детектирует такие вызовы: в ответах периодически появляется приписка «API
+   предназначено для 1С:EDT» (на работу не влияет), в худшем случае возможна
+   блокировка токена/учётки. Использование — на свой страх и риск (согласовано
+   с владельцем 2026-08-10).
+5. **Инструменты появляются только в новой сессии** Hermes (как и §12.3/§13):
+   после регистрации/правки конфига — переоткрыть Hermes.
+
+### 14.3 Проверка (здоровая связка)
+
+```bash
+curl http://localhost:6002/health        # {"status":"ok","version":"1.4.1"}
+# MCP-рукопожатие:
+curl -s -X POST http://localhost:6002/mcp \
+  -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"smoke","version":"0.1"}}}'
+# → result.serverInfo.name = "1C.ai Gateway MCP"
+```
+
+В Hermes-сессии после переоткрытия: `mcp__1c_buddy__ask_1c_ai` отвечает по
+платформе, `mcp__1c_buddy__search_its` возвращает документы ИТС с id —
+дальше `mcp__1c_buddy__fetch_its` читает конкретный документ.
