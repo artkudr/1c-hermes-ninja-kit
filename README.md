@@ -15,8 +15,9 @@
    - oscript (последняя стабильная версия, самодостаточный zip в `tools/engine`,
      без UAC — winget-каталог отстаёт, не используем);
    - opm-пакеты (`sql`, `autumn`, `autumn-mcp`); `yaxunit` — опция (снят с плана);
-   - статический контур mcp-1c (lekot): oscript-сервер поиска по выгрузке +
-     справки SQLite (5 инструментов, без живой сессии 1С) — `install/install-mcp1c.sh`;
+   - статический контур mcp-1c-autumn: oscript-сервер поиска по выгрузке +
+     справки SQLite (5 инструментов, без живой сессии 1С; порт lekot/mcp-1c
+     на autumn-mcp) — `install/install-mcp1c-autumn.sh`;
    - LLM-ядро 1c-buddy :6002 (1С:Напарник): MCP, 8 экспертных инструментов
      (порт только 127.0.0.1; токен code.1c.ai — в `tools/.env`);
    - создаётся `C:/hermes/tools/` (всё не-докерное: `.env`, `projects.json`, движки).
@@ -49,10 +50,10 @@ hermes mcp add 1c-toolkit --url http://127.0.0.1:6003/mcp   # ответы: n, y
 Подробности (переменные, каналы, анонимизация) — в `docs/INSTALL.md` §12 и
 `docs/DECISIONS.md`.
 
-## Статический контур (lekot/mcp-1c) — поиск по выгрузке без живой сессии
+## Статический контур (mcp-1c-autumn) — поиск по выгрузке без живой сессии
 
 oscript-сервер поверх выгрузки конфигурации: работает всегда, не требует базы,
-пароля и Docker. Даёт агенту 5 инструментов Hermes (`mcp__mcp1c__*`):
+пароля и Docker. Даёт агенту 5 инструментов Hermes (`mcp__mcp_1c_autumn__*`):
 
 | Инструмент | Что делает |
 |---|---|
@@ -63,13 +64,15 @@ oscript-сервер поверх выгрузки конфигурации: р�
 | `syntax_help_search` | справка синтакс-помощника 1С из SQLite (6 МБ в репо сервера) |
 
 ```bash
-bash install/install-mcp1c.sh "C:/hermes"   # идемпотентно; --force — переустановка
-hermes mcp test mcp-1c                       # ✓ Connected, ✓ Tools discovered: 5
+bash install/install-mcp1c-autumn.sh "C:/hermes"  # идемпотентно; --force — переустановка
+hermes mcp test mcp-1c-autumn                     # ✓ Connected, ✓ Tools discovered: 5
 ```
 
-Сервер живёт в `tools/mcp-1c` (build из репозитория lekot/mcp-1c: `main.os` +
-`src/` + `shcntx_help.db`). После установки — **переоткрыть Hermes** (инструменты
-появляются в новой сессии). Подробности и грабли — `docs/INSTALL.md` §13.
+Сервер живёт в `tools/mcp-1c-autumn` — порт оригинального lekot/mcp-1c на фреймворк
+autumn-mcp (JSON-RPC-слой заменён библиотечным, контракты инструментов без изменений;
+origin и лицензия GPL-3.0 — в README сервера). Прежний lekot-сервер отключён, история
+и исходники — в `tools/archive/mcp-1c-lekot/`. После установки — **переоткрыть Hermes**
+(инструменты появляются в новой сессии). Подробности и грабли — `docs/INSTALL.md` §13.
 
 ## LLM-ядро: 1c-buddy (1С:Напарник), порт 6002
 
@@ -108,7 +111,7 @@ bash scripts/ninja.sh list        # реестр баз (tools/projects.json)
 bash scripts/ninja.sh scan        # базы на диске + кто не в реестре
 ```
 
-Анализ кода — статический контур mcp-1c (`bsl_search`, `read_module`, …),
+Анализ кода — статический контур mcp-1c-autumn (`bsl_search`, `read_module`, …),
 живой мост 1c-mcp-toolkit и LLM-ядро 1c-buddy (Напарник).
 
 Структура каждой базы:

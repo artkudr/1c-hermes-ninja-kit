@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "mcp-1c-autumn": {
+      "command": "oscript",
+      "args": ["C:\\hermes\\tools\\mcp-1c-autumn\\main.os"],
+      "env": {
+        "SHCNTX_HELP_DB": "C:\\hermes\\tools\\mcp-1c-autumn\\src\\data\\shcntx_help.db"
+      }
+    }
+  }
+}

@@ -437,76 +437,71 @@ curl -s -X POST http://localhost:6003/api/get_bsl_syntax_help $J \
 - SQL-инъекций нет, но `execute_query` исполняет произвольные запросы в контексте
   базы — это dev-инструмент; политика доступа — на владельце сессии 1С.
 
-## 13. Статический контур: lekot/mcp-1c (проверено 2026-08-10)
+## 13. Статический контур: mcp-1c-autumn (порт lekot на autumn-mcp, проверено 2026-08-11)
 
-Разворачивается установщиком `install/install-mcp1c.sh` (вызывается и из
-`install.sh`, шаг 6). Сервер: `oscript tools/mcp-1c/main.os` (stdio/JSON-RPC),
-build из репозитория `github.com/lekot/mcp-1c` (ветка `main`): `main.os` +
-`src/` + `shcntx_help.db` (6 МБ, SQLite-справка синтакс-помощника — экспорт из
-1С НЕ нужен, БД лежит в репо). Контур работает БЕЗ живой сессии 1С, Docker и
-сети; инструменты Hermes `mcp__mcp1c__*` (5 шт.): `bsl_search`, `xml_search`,
-`config_list`, `read_module`, `syntax_help_search`.
+Разворачивается установщиком `install/install-mcp1c-autumn.sh` (вызывается и из
+`install.sh`, шаг 6). Сервер: `oscript tools/mcp-1c-autumn/main.os` (stdio MCP,
+фреймворк autumn-mcp): `main.os` + `Классы/` (5 инструментов с аннотациями) +
+`shcntx_help.db` (6 МБ, SQLite-справка синтакс-помощника — экспорт из 1С НЕ нужен).
+Это порт оригинального lekot/mcp-1c: рукописный JSON-RPC заменён библиотечным
+каркасом, контракты инструментов без изменений (origin и GPL-3.0 — в README
+сервера). Контур работает БЕЗ живой сессии 1С, Docker и сети; инструменты Hermes
+`mcp__mcp_1c_autumn__*` (5 шт.): `bsl_search`, `xml_search`, `config_list`,
+`read_module`, `syntax_help_search`.
 
 ### 13.1 Установка (идемпотентная, повторный запуск безопасен)
 
 ```bash
-bash install/install-mcp1c.sh "C:/hermes"        # скачать/распаковать + регистрация
-bash install/install-mcp1c.sh "C:/hermes" --force  # переустановка с нуля
-hermes mcp test mcp-1c        # ✓ Connected (≈0.5 с), ✓ Tools discovered: 5
+bash install/install-mcp1c-autumn.sh "C:/hermes"          # копия шаблона + регистрация
+bash install/install-mcp1c-autumn.sh "C:/hermes" --force  # переустановка с нуля
+hermes mcp test mcp-1c-autumn        # ✓ Connected (≈1 с), ✓ Tools discovered: 5
 ```
 
-Скрипт делает: (1) качает `mcp-1c-main.zip`, распаковывает в
-`tools/mcp-1c` (python zipfile; структура архива `mcp-1c-main/...`);
-(2) `hermes mcp add mcp-1c --command oscript --args <tools>\mcp-1c\main.os`;
-(3) `hermes config set mcp_servers.mcp-1c.env.SHCNTX_HELP_DB <путь к shcntx_help.db>`.
+Скрипт делает: (1) копирует шаблон `templates/mcp-server-autumn/` в
+`tools/mcp-1c-autumn` (`main.os`, `Классы/`, `src/data/shcntx_help.db`, `rules/`,
+`port_test.py`, `mcp.json`); (2) применяет фикс sql-пакета (копии DLL, грабли №6);
+(3) `hermes mcp add mcp-1c-autumn --command oscript --env SHCNTX_HELP_DB=<путь к БД>
+--args <tools>\mcp-1c-autumn\main.os` (промпт закрывается `printf 'Y\n' |`).
 
 ### 13.2 ГРАБЛИ (все проверены исполнением)
 
-1. **cwd-баг `syntax_help_search`** — `main.os` резолвит путь к БД справки от
-   **каталога запуска** (oscript НЕ кладёт путь к скрипту в
-   `АргументыКоманднойСтроки` — `ПутьСкрипта` остаётся `"main.os"`, а
-   `Файл(...).ПолноеИмя` считается от cwd). Hermes стартует stdio-серверы из
-   домашней папки пользователя → без фикса справка падает:
-   `База справки не найдена: C:/Users/<user>/src/data/shcntx_help.db`.
-   **Фикс: env `SHCNTX_HELP_DB`** в конфиге сервера (handler читает окружение
-   первым). Без перезапуска Hermes env не подхватится (инструменты из новой
-   сессии; процесс старого сервера уже живёт без env).
+1. **cwd-баг `syntax_help_search`** — резолвинг БД: `dbPath` → env
+   `SHCNTX_HELP_DB` → файл `shcntx_help_db_path.txt` → `src/data/shcntx_help.db`
+   от cwd. Hermes стартует stdio-серверы из домашней папки → без фикса справка
+   падает («База справки не найдена»). **Фикс: env `SHCNTX_HELP_DB`** прописывает
+   установщик. Без перезапуска Hermes env не подхватится (инструменты — из новой
+   сессии).
 2. **`hermes mcp add` — `--args` ДОЛЖЕН быть последним**: всё, что после
-   `--args ...`, попадает в аргументы сервера (`--connect-timeout 60` станет
-   вторым аргументом oscript и сломает старт). Таймауты дописываем отдельно:
-   `hermes config set mcp_servers.mcp-1c.connect_timeout 60`.
-3. **`hermes mcp add` интерактивен**: промпт «Enable all 5 tools?» —
-   закрывается подачей `printf 'Y\n' |`.
-4. **Инструменты появляются только в новой сессии** Hermes (как и с
-   1c-toolkit, §12.3): после регистрации/правки конфига — переоткрыть Hermes.
-5. **Не нужен opm**: зип-дистрибутив oscript уже содержит `lib/sql`
-   (и `lib/opm`, `lib/autumn`, `lib/autumn-mcp`) — `syntax_help_search`
-   работает из коробки; `opm.bat` может отсутствовать в bash-PATH (bat-файл),
-   для MCP это не важно.
+   `--args ...`, попадает в аргументы сервера (таймауты сломают старт). Таймауты
+   дописываем отдельно: `hermes config set mcp_servers.mcp-1c-autumn.connect_timeout 60`.
+3. **`hermes mcp add` интерактивен**: промпт «Enable all 5 tools?» закрывается
+   подачей `printf 'Y\n' |`.
+4. **Инструменты появляются только в новой сессии** Hermes — после регистрации
+   переоткрыть приложение.
+5. **Кавычки в аннотациях `&Инструмент`/`&ПараметрИнструмента` запрещены**:
+   декоратор autumn-mcp пере-сериализует строковые аргументы и не экранирует `"` —
+   компиляция падает («Ожидается символ: ClosePar»). В описаниях — кавычки-«ёлочки».
+   Внутри строк OneScript обратный слэш перед кавычкой не работает (строка
+      закрывается) — только удвоение кавычки.
+6. **Фикс sql-пакета (обязательно)**: oscript 2.1.0 + `sql` 1.3.2 падает
+   «System.Data.SqlClient 4.6.1.6 not found» — NuGet-раскладка кладёт сборки в
+   `runtimes/...`, а не в `Components/dotnet`. Лечится копированием двух DLL из
+   `<engine>\lib\sql\Components\dotnet\runtimes\` (`win\lib\netcoreapp2.1\System.Data.SqlClient.dll`
+   и `win-x64\native\SQLite.Interop.dll`) на уровень `Components\dotnet\`. Применяет
+   установщик; после фикса — перезапуск Hermes.
 
-### 13.3 Проверка (живые вызовы через SDK/инструменты)
+### 13.3 Проверка (живые вызовы через SDK)
 
 ```bash
-# SDK-прогон (cwd любой): bsl_search + read_module + syntax_help_search
-cd /c/Users/<user> && python - <<'PY'
-import asyncio
-from mcp import ClientSession, StdioServerParameters
-from mcp.client.stdio import stdio_client
-async def m():
-    p = StdioServerParameters(command='oscript',
-        args=[r'C:\hermes\tools\mcp-1c\main.os'],
-        env={'SHCNTX_HELP_DB': r'C:\hermes\tools\mcp-1c\src\data\shcntx_help.db'})
-    async with stdio_client(p) as (r, w):
-        async with ClientSession(r, w) as s:
-            await s.initialize()
-            x = await s.call_tool('syntax_help_search', {'query': 'ТаблицаЗначений'})
-            print('isError:', x.isError)
-            print(''.join(c.text if hasattr(c,'text') else str(c) for c in x.content)[:150])
-asyncio.run(m())
-PY
+cd C:\hermes\tools\mcp-1c-autumn && python port_test.py   # все 5 инструментов, EXIT=0
 ```
 
-В Hermes-сессии после переоткрытия: `mcp__mcp_1c__bsl_search` ищет по
+`port_test.py` — smoke-прогон через официальный MCP SDK (bsl_search, xml_search,
+config_list, read_module, syntax_help_search + негативные сценарии). Исторический
+A/B со старым сервером — `compare_test.py`; прежний lekot-сервер отключён, исходники
+и история — `tools/archive/mcp-1c-lekot`.
+
+В Hermes-сессии после переоткрытия: `mcp__mcp_1c_autumn__bsl_search` ищет по
 `src/cfe/<Расширение>` (кириллические пути работают), `read_module` читает
 модуль целиком по пути (`C:\...\Ext\Form\Module.bsl`), `config_list` обходит
 структуру расширения, `xml_search` находит объекты в XML-метаданных.

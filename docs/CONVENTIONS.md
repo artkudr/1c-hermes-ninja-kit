@@ -84,8 +84,8 @@ Hermes с якорем на этот каталог (`project_create {name, path
 
 ## Анализ
 
-- Анализ кода — статический контур mcp-1c (lekot): `bsl_search`, `xml_search`,
-  `config_list`, `read_module`, `syntax_help_search`.
+- Анализ кода — статический контур mcp-1c-autumn (порт lekot/mcp-1c на autumn-mcp):
+  `bsl_search`, `xml_search`, `config_list`, `read_module`, `syntax_help_search`.
 - Источник — `src/cfe/<Расширение>`; контекст типовой — `src/cf` (если непуст).
 
 ## Публикация

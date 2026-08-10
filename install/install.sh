@@ -117,12 +117,12 @@ if [ -n "$OPM_EXE" ]; then
   # при необходимости вернуть: opm install https://github.com/xDrivenDevelopment/yaxunit
 fi
 
-# ---------- 5. Статический контур mcp-1c (lekot) ----------
+# ---------- 5. Статический контур mcp-1c-autumn (порт lekot на autumn-mcp) ----------
 if command -v hermes >/dev/null 2>&1; then
-  say "Статический контур mcp-1c (lekot)..."
-  bash "$KIT_DIR/install/install-mcp1c.sh" "$PROJECTS_ROOT" || warn "mcp-1c: установка прервана (см. лог)"
+  say "Статический контур mcp-1c-autumn..."
+  bash "$KIT_DIR/install/install-mcp1c-autumn.sh" "$PROJECTS_ROOT" || warn "mcp-1c-autumn: установка прервана (см. лог)"
 else
-  warn "hermes CLI не найден — статический контур mcp-1c пропущен; после установки Hermes: bash install/install-mcp1c.sh \"$PROJECTS_ROOT\""
+  warn "hermes CLI не найден — статический контур mcp-1c-autumn пропущен; после установки Hermes: bash install/install-mcp1c-autumn.sh \"$PROJECTS_ROOT\""
 fi
 
 # ---------- 6. LLM-ядро: 1c-buddy (1С:Напарник) ----------
