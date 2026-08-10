@@ -5,10 +5,8 @@
 ```
 1c-hermes-ninja-kit/
   install/install.sh        # идемпотентная установка окружения
-  install/bslc/Dockerfile   # локальный образ bslc (fallback для ghcr.io)
   scripts/ninja.sh          # создание/список/обзор баз
   scripts/ninja_json.py     # работа с tools/projects.json (python на Windows)
-  scripts/bsl-check.sh      # статический анализ расширения через bslc
   templates/                # шаблоны для новых баз (см. ниже)
   docs/INSTALL.md           # проверенные шаги установки и эксплуатации
   docs/DECISIONS.md         # обоснованные решения
@@ -44,8 +42,7 @@
   tasks/task_N/      # одна папка на задачу: README.md (карточка), request.md,
                      #   solution.md, assets/ (скрины), materials/ (файлы заказчика), _archive/
   docs/              # общая документация (не по задачам)
-  reports/           # отчёты bsl-check (json/sarif), НЕ в git
-  .bsl-language-server.json
+  reports/           # отчёты анализа (json/sarif), НЕ в git
   AGENTS.md          # правила работы (из templates/AGENTS.md.tpl)
   .gitignore         # src/cf, reports/ вне git
 ```
@@ -87,10 +84,9 @@ Hermes с якорем на этот каталог (`project_create {name, path
 
 ## Анализ
 
-- Единственный анализатор — bslc (docker, CLI по запросу); Java только в контейнере.
+- Анализ кода — статический контур mcp-1c (lekot): `bsl_search`, `xml_search`,
+  `config_list`, `read_module`, `syntax_help_search`.
 - Источник — `src/cfe/<Расширение>`; контекст типовой — `src/cf` (если непуст).
-- Обёртка: `bsl-check <база> <расширение>` (отчёт → reports/).
-- Версию образа пинуем (`bslc:1.0.7`), не `latest`.
 
 ## Публикация
 

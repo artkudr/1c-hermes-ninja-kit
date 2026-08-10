@@ -69,7 +69,6 @@ cmd_new() {
   mkdir -p "$BASE/src/cf" "$BASE/src/cfe" "$BASE/reports" "$BASE/notes" "$BASE/docs" "$BASE/tasks"
   touch "$BASE/src/cfe/.gitkeep"
 
-  cp "$KIT_DIR/templates/bsl-language-server.json" "$BASE/.bsl-language-server.json"
   cp "$KIT_DIR/templates/AGENTS.md.tpl"            "$BASE/AGENTS.md"
   cp "$KIT_DIR/templates/gitignore"                "$BASE/.gitignore"
   say "Создан AGENTS.md (правила базы) — текст скопирован из templates/AGENTS.md.tpl, отредактируйте при необходимости"
@@ -97,7 +96,7 @@ EOF
 | База | $NAME |
 | Типовая | TBD (см. registry.md) |
 | Расширения | ${EXTS[*]:-нет} |
-| Анализатор | bslc (docker, srcDir = src/cfe/<Расширение>) |
+| Анализатор | mcp-1c (статический контур: bsl_search, read_module) |
 
 ## Задачи — сводная таблица
 

@@ -55,27 +55,7 @@ opm.bat install yaxunit      # ⚠ в реестре не найден/сеть 
 `opm.bat install https://github.com/xDrivenDevelopment/yaxunit`
 (для Фазы 2/3 «YAXUNIT-тесты» не требуется).
 
-## 3. Анализатор bslc (docker, без Java на хосте)
-
-**ghcr.io из сети недоступен** (403 на токене/denied) — официальный образ
-`ghcr.io/1c-syntax/bsl-language-server` не тянется. Рабочий путь: локальный образ
-из исполняемого jar с Maven Central (**актуальная версия bslc = 1.0.7**):
-
-```bash
-# jar (130 МБ):
-curl -sL -o tools/downloads/bsl-language-server-1.0.7-exec.jar \
-  https://repo1.maven.org/maven2/io/github/1c-syntax/bsl-language-server/1.0.7/bsl-language-server-1.0.7-exec.jar
-
-# Dockerfile — в install/bslc/Dockerfile (база eclipse-temurin:21-jre, hub доступен):
-docker build -t bslc:1.0.7 -f install/bslc/Dockerfile "…/tools/downloads"
-
-# проверка (CLI с подкомандами analyze/format/version/lsp/websocket/mcp):
-docker run --rm bslc:1.0.7 --help
-```
-
-Образ помечен `bslc:1.0.7`; имя используется всеми обёртками (`scripts/bsl-check.sh`).
-
-## 3а. Инфраструктура tools (создаётся install.sh, идемпотентно)
+## 3. Инфраструктура tools (создаётся install.sh, идемпотентно)
 
 ```
 <корень>/tools/
@@ -91,7 +71,7 @@ bash install/install.sh "C:/hermes"   # второй прогон ничего �
 ```
 
 Повторный запуск подтвердил: все секции переходят в состояние «уже есть»
-(движок, opм-пакеты списком, образ bslc) — установка безопасно повторяем.
+(движок, opм-пакеты списком) — установка безопасно повторяем.
 
 ## 5. ninja — создание баз (Фаза 2, проверено)
 
@@ -101,7 +81,7 @@ bash scripts/ninja.sh new demo-bp --ext DataExchange --ext PrintForms
 
 Создаёт: `src/cf` (выгрузка типовой, read-only), `src/cfe/<расширение>…`,
 `notes/registry.md` (версия типовой — строка TBD), `reports/`,
-`.bsl-language-server.json`, `AGENTS.md` (из `templates/AGENTS.md.tpl`),
+`AGENTS.md` (из `templates/AGENTS.md.tpl`),
 `.gitignore` базы, `git init -b main`. Регистрирует базу в `tools/projects.json`.
 
 **ОБЯЗАТЕЛЬНО после создания базы:** создать desktop-проект Hermes и привязать
@@ -116,22 +96,7 @@ bash scripts/ninja.sh new demo-bp --ext DataExchange --ext PrintForms
 - json-реестр ведёт `scripts/ninja_json.py` (python на Windows не понимает
   MSYS-пути — все пути передаются в Windows-форме через `cygpath -w`).
 
-## 6. bsl-check — статический анализ (Фаза 3, проверено)
-
-```bash
-bash scripts/bsl-check.sh <база> <расширение> [--reporter json|sarif]
-```
-
-Docker-обёртка bslc (образ `bslc:1.0.7`): `--srcDir src/cfe/<расширение>` +
-`--srcDir src/cf` (контекст типовой — только если каталог НЕ пуст: bslc падает
-на пустом srcDir), `--configuration .bsl-language-server.json`, `--outputDir
-/ws/reports`. Отчёт — `reports/<Расширение>_<ts>.json`; резюме — сумма
-`fileinfos[].diagnostics` (формат bslc 1.0.7: dict с ключами date/fileinfos/sourceDir).
-
-Проверено: файл с ошибками переноса → 7 диагностик; корректный модуль → 1
-(Hint по стилю). Тег образа пинуем версией, не `latest`.
-
-## 7. Список и обзор баз (Фаза 4, проверено)
+## 6. Список и обзор баз (Фаза 4, проверено)
 
 - `bash scripts/ninja.sh list` — реестр из `tools/projects.json`;
 - `bash scripts/ninja.sh scan` — обход `PROJECTS_ROOT`: выявляет базы на диске

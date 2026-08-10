@@ -2,7 +2,7 @@
 
 **Самоустанавливающийся плейбук ИИ-экосистемы разработки 1С.**
 
-Ставит окружение (oscript последней версии, анализатор bslc в docker, opm-пакеты,
+Ставит окружение (oscript последней версии, opm-пакеты,
 живой мост 1c-mcp-toolkit :6003), создаёт 1С-базы по единой конвенции и даёт
 агентам (Hermes и другим) понятный контур работы: `src/cf` — типовая (read-only
 контекст), `src/cfe/*` — расширения.
@@ -15,8 +15,6 @@
    - oscript (последняя стабильная версия, самодостаточный zip в `tools/engine`,
      без UAC — winget-каталог отстаёт, не используем);
    - opm-пакеты (`sql`, `autumn`, `autumn-mcp`); `yaxunit` — отдельно из git;
-   - docker-образ bslc: официальный ghcr → если недоступен, локальный образ
-     из exec-jar с Maven Central (`install/bslc/Dockerfile`, Java только в контейнере);
    - статический контур mcp-1c (lekot): oscript-сервер поиска по выгрузке +
      справки SQLite (5 инструментов, без живой сессии 1С) — `install/install-mcp1c.sh`;
    - создаётся `C:/hermes/tools/` (всё не-докерное: `.env`, `projects.json`, движки).
@@ -77,20 +75,20 @@ hermes mcp test mcp-1c                       # ✓ Connected, ✓ Tools discover
 bash scripts/ninja.sh new <имя> --ext <ExtA> [--ext <ExtB> …]  # создать базу
 bash scripts/ninja.sh list        # реестр баз (tools/projects.json)
 bash scripts/ninja.sh scan        # базы на диске + кто не в реестре
-
-bash scripts/bsl-check.sh <база> <расширение> [--reporter json|sarif]
-                                  # статический анализ расширения (bslc в docker)
 ```
+
+Статический анализ кода — контур mcp-1c (`bsl_search`, `read_module`, …)
+и живой мост 1c-mcp-toolkit.
 
 Структура каждой базы:
 
-```
+```bash
 <имя>/
   src/cf/            # выгрузка типовой — read-only, в git не хранится
   src/cfe/<Расширение>/  # расширения (единственное, что линтуем)
   notes/registry.md  # реестр: версия типовой одной строкой
   reports/           # отчёты анализа
-  .bsl-language-server.json  AGENTS.md  .gitignore
+  AGENTS.md  .gitignore
 ```
 
 После создания базы ОБЯЗАТЕЛЬНО привязать к ней desktop-проект Hermes
@@ -102,7 +100,7 @@ bash scripts/bsl-check.sh <база> <расширение> [--reporter json|sar
 
 - `docs/INSTALL.md` — пошаговое руководство, **каждый пункт проверен исполнением**;
 - `docs/CONVENTIONS.md` — конвенции структуры и git;
-- `docs/DECISIONS.md` — почему именно так (bslc, zip-oscript, локальный образ и т.п.).
+- `docs/DECISIONS.md` — почему именно так (zip-oscript, локальный образ и т.п.).
 
 ## Лицензия
 

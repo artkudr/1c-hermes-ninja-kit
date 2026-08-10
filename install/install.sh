@@ -10,15 +10,13 @@
 #    https://oscript.io/api/archive/latest) в {PROJECTS_ROOT}/tools/engine/ —
 #    без UAC, без Program Files, всё в папке проектов;
 #  - opm-пакеты ставятся в движок (права не нужны);
-#  - bslc — docker-образ (не нужен Java на хосте).
+#  - анализатор кода: статический контур mcp-1c (LSP-серверы не ставим).
 # ============================================================
 set -euo pipefail
 
 KIT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # ---------- конфиг ----------
-BSL_VERSION="${BSL_VERSION:-1.0.7}"
-BSL_IMAGE="${BSL_IMAGE:-bslc:$BSL_VERSION}"
 OSCRIPT_ARCHIVES_URL="${OSCRIPT_ARCHIVES_URL:-https://oscript.io/api/archive/latest}"
 PROJECTS_ROOT="${1:-${PROJECTS_ROOT:-}}"
 
@@ -120,38 +118,7 @@ if [ -n "$OPM_EXE" ]; then
   say "Примечание: yaxunit (тесты) — opm install https://github.com/xDrivenDevelopment/yaxunit, когда сеть позволит"
 fi
 
-# ---------- 5. Docker-образ анализатора bslc ----------
-# Порядок: официальный образ ghcr.io → если реестр недоступен, собрать локальный
-# образ из исполняемого jar с Maven Central (Java 21 живёт в контейнере, не на хосте).
-BSL_VERSION="${BSL_VERSION:-1.0.7}"
-BSL_OFFICIAL="${BSL_OFFICIAL_IMAGE:-ghcr.io/1c-syntax/bsl-language-server:$BSL_VERSION}"
-BSL_IMAGE="${BSL_IMAGE:-bslc:$BSL_VERSION}"
-
-say "Проверка образа анализатора bslc ($BSL_IMAGE)..."
-if docker image inspect "$BSL_IMAGE" >/dev/null 2>&1; then
-  ok "образ bslc уже есть ($BSL_IMAGE)"
-else
-  say "Пробую официальный образ $BSL_OFFICIAL..."
-  if docker pull "$BSL_OFFICIAL" >/dev/null 2>&1; then
-    BSL_IMAGE="$BSL_OFFICIAL"
-    ok "официальный образ bslc скачан (ghcr.io)"
-  else
-    warn "ghcr.io недоступен из этой сети — собираю локальный образ из Maven Central"
-    JAR="$TOOLS/downloads/bsl-language-server-$BSL_VERSION-exec.jar"
-    if [ ! -f "$JAR" ]; then
-      say "Скачиваю $JAR..."
-      curl -sL --max-time 600 -o "$JAR" \
-        "https://repo1.maven.org/maven2/io/github/1c-syntax/bsl-language-server/$BSL_VERSION/bsl-language-server-$BSL_VERSION-exec.jar"
-    fi
-    [ -f "$JAR" ] || fail "jar bslc не скачан"
-    KIT_WIN="$(cygpath -w "$KIT_DIR" 2>/dev/null || echo "$KIT_DIR")"
-    docker build -t "$BSL_IMAGE" -f "$KIT_WIN/install/bslc/Dockerfile" "$TOOLS/downloads" \
-      && ok "локальный образ собран: $BSL_IMAGE" \
-      || warn "не удалось собрать образ bslc"
-  fi
-fi
-
-# ---------- 6. Статический контур mcp-1c (lekot) ----------
+# ---------- 5. Статический контур mcp-1c (lekot) ----------
 if command -v hermes >/dev/null 2>&1; then
   say "Статический контур mcp-1c (lekot)..."
   bash "$KIT_DIR/install/install-mcp1c.sh" "$PROJECTS_ROOT" || warn "mcp-1c: установка прервана (см. лог)"
@@ -164,5 +131,4 @@ say "Готово. Проверка:"
 ok "PROJECTS_ROOT = $PROJECTS_ROOT"
 [ -f "$OSCRIPT_EXE" ] && ok "oscript = $("$OSCRIPT_EXE" -version 2>&1 | head -1)"
 [ -n "$OPM_EXE" ] && [ -f "$OPM_EXE" ] && ok "opm = $("$OPM_EXE" version 2>&1 | head -1)"
-docker image inspect "$BSL_IMAGE" >/dev/null 2>&1 && ok "bslc образ = $BSL_IMAGE"
 echo "Следующий шаг: scripts/ninja.sh new <имя-базы>  (создание проекта по конвенции)"
