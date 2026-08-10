@@ -151,6 +151,14 @@ else
   fi
 fi
 
+# ---------- 6. Статический контур mcp-1c (lekot) ----------
+if command -v hermes >/dev/null 2>&1; then
+  say "Статический контур mcp-1c (lekot)..."
+  bash "$KIT_DIR/install/install-mcp1c.sh" "$PROJECTS_ROOT" || warn "mcp-1c: установка прервана (см. лог)"
+else
+  warn "hermes CLI не найден — статический контур mcp-1c пропущен; после установки Hermes: bash install/install-mcp1c.sh \"$PROJECTS_ROOT\""
+fi
+
 # ---------- итог ----------
 say "Готово. Проверка:"
 ok "PROJECTS_ROOT = $PROJECTS_ROOT"

@@ -4,6 +4,7 @@
 
 # ---- Локальная инфраструктура (создаётся install.sh) ----
 /tools/
+shcntx_help_db_path.txt   # побочный файл mcp-1c (cwd-баг, см. INSTALL.md §13.2)
 
 # ---- ОС-мусор ----
 Thumbs.db
