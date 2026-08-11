@@ -23,6 +23,7 @@ metadata:
 - Кит: `C:\hermes\1c-hermes-ninja-kit` (git, ветка `main`, origin = `https://github.com/artkudr/1c-hermes-ninja-kit.git`).
 - Эталон базы: `templates/project/`. `ninja new` штампует базу: копирует `AGENTS.md.tpl` из `templates/` как `<base>/AGENTS.md` (строка ~72 `scripts/ninja.sh`) + копирует каркас `templates/project/*`.
 - Контуры в ките: статический **mcp-1c-autumn** (порт lekot/mcp-1c на autumn-mcp), живой **1c-mcp-toolkit :6003**, LLM-ядро **1c-buddy :6002**, мост **pi-bridge** (служба NSSM). **bslc — изъят** («БЕЗ НАДОБНОСТИ», архив `C:\hermes\bsl-server-fail`).
+- **Скиллы 1С живут в ките** (`skills/<категория>/<скилл>/SKILL.md`, 5 шт.) и подключаются к Hermes через `skills.external_dirs` (install.sh шаг 7, INSTALL.md §15). Правки — коммитом в кит, на стенде — `git pull`. Не править в `~/.hermes/skills/` — локальных копий нет.
 - Публикация: токен в `~/.git-credentials` (HTTPS), gh/SSH нет; репо создаётся/меняется через `api.github.com` (POST `/user/repos`, PATCH `/repos/<owner>/<repo>`).
 
 ## Рабочий процесс (проверка → коммит → пуш → публикация)
