@@ -133,6 +133,25 @@ else
   warn "hermes CLI не найден — 1c-buddy пропущен; после установки Hermes: bash install/install-buddy.sh \"$PROJECTS_ROOT\""
 fi
 
+# ---------- 7. Скиллы кита (skills.external_dirs) ----------
+# Скиллы 1С живут в ките (skills/<категория>/<скилл>/SKILL.md) и подключаются
+# к Hermes как внешний каталог. Правки — коммитом в кит, на стенде — git pull.
+if command -v hermes >/dev/null 2>&1; then
+  say "Скиллы кита (skills.external_dirs)..."
+  KIT_SKILLS_WIN="$(cygpath -w "$KIT_DIR/skills" 2>/dev/null || echo "$KIT_DIR/skills")"
+  CURRENT_DIRS="$(hermes config get skills.external_dirs 2>/dev/null || true)"
+  if printf '%s' "$CURRENT_DIRS" | grep -q "1c-hermes-ninja-kit"; then
+    ok "skills.external_dirs уже указывает на кит: $CURRENT_DIRS"
+  else
+    # ВНИМАНИЕ: --force заменяет секцию целиком. Если external_dirs уже содержит
+    # другие каталоги (не кит), допишите их в config.yaml вручную после установки.
+    hermes config set --force skills.external_dirs "$KIT_SKILLS_WIN" \
+      && ok "skills.external_dirs = $KIT_SKILLS_WIN"
+  fi
+else
+  warn "hermes CLI не найден — skills.external_dirs пропущен; после установки Hermes: hermes config set --force skills.external_dirs \"$KIT_DIR/skills\""
+fi
+
 # ---------- итог ----------
 say "Готово. Проверка:"
 ok "PROJECTS_ROOT = $PROJECTS_ROOT"

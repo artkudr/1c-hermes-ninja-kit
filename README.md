@@ -130,6 +130,18 @@ bash scripts/ninja.sh scan        # базы на диске + кто не в р
 после переключения). Переключение между базами — `project_switch`, не `cd`.
 Полные правила — в `docs/CONVENTIONS.md` и `templates/AGENTS.md.tpl`.
 
+## Скиллы кита (skills.external_dirs)
+
+1С-скиллы живут в ките (`skills/<категория>/<скилл>/SKILL.md`) и подключаются
+к Hermes как внешний каталог (одна копия, правки — коммитом в кит):
+
+```bash
+hermes config set --force skills.external_dirs "C:/hermes/1c-hermes-ninja-kit/skills"
+# проверка: hermes skills list | grep 1c
+```
+
+Список скиллов и грабли — `docs/INSTALL.md` §15.
+
 ## Документация
 
 - `docs/INSTALL.md` — пошаговое руководство, **каждый пункт проверен исполнением**;

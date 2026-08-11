@@ -1,0 +1,41 @@
+# Экосистема ИИ для 1С — решения владельца и эталонный стек (2026-08-09)
+
+Полный инвентарь и состояние: `~/guides/00-1c-ecosystem-consolidated.md` (паспорт/этапы/правило), `~/guides/04-1c-tools-inventory.md` (карточки всех инструментов), `~/guides/05-1c-bsl-analyzers.md` (экосистема BSL-анализаторов) и `~/guides/06-1c-deployment-plan.md` (план развёртки: этапы 1 → 1.5 → 2 → 3 → 4 → 5-6). Этот файл — быстрая памятка «что выбрано» для сессий, которые добавляют/оценивают инструменты. **Заменяет раздел «Рекомендуемый стек интеграции» из** `references/openyellow-catalog.md` (там выбор был до поправок владельца).
+
+## Философия владельца (жёстко)
+- НЕ «одна роль — одна тулза». **Несколько КРУПНЫХ универсальных инструментов**, чтобы не тащить кучу зависимостей.
+- Всё, что можно, на **OneScript 2.x / Осень** (autumn-mcp, autumn-mcpify) — свой большой oscript-MCP вместо толпы мелких сервисов.
+- Один сервер обслуживает **всех трёх клиентов**: Hermes, Cursor, prime-agent (различия только в конфиге).
+- Планирование перед установкой: ничего не ставить без явного «ГО» владельца (он дважды ловил за «рано пошёл в бой»).
+
+## Выбор инструментов (итог сессии)
+| Роль | Основной | Резерв / музей |
+|---|---|---|
+| Живой доступ к базе (контур B) | `1c-mcp-toolkit` прокси :6003 (Python/Docker + EPF в живой 1С) — ось, обязателен | «вторые мосты» (feenlace/mcp-1c, OpenIntegrations, MCP35, DaJet, OneBridge:1414 — запрещён) — музей |
+| Поиск по коду/выгрузке (контур A) | **lekot/mcp-1c v0.2.0 — build/ развёрнут НАПРЯМУЮ на oscript (2026-08-10)**: репо самодостаточно, порт в autumn-mcp НЕ понадобился | rlm-tools-bsl :9000 (резерв); bsl-atlas (RAG — только семантика); Neo4j/Qdrant-графы — музей |
+| Справка платформы (контур C) | **`syntax_help_search` из порта lekot** (SQLite `shcntx_help.db`, поставляется в репо) | mcp-bsl-platform-context (Java 17, нечёткий/ранжированный поиск) — только если простого LIKE не хватит; onec-help-mcp (Python) |
+| Навыки/агенты | cc-1c-skills (кросс-агентный, 509★) | 1c-ai-development-kit (Cursor/CC-only; валиден: платформа 8.3.27 ≥ 8.3.24); cursor-1c-skills; 1c-ssl-skills (БСП) |
+| Тесты | YaXUnit (oscript, без платформы) | mcp-onec-test-runner — только если появится Java |
+| Стат. анализ BSL (линт, гайд 05) | **`bslc` (BSL Language Server) — ОСНОВНОЙ** (решение владельца 2026-08-09 — переворот прежнего выбора): **Docker** `ghcr.io/1c-syntax/bsl-language-server` (Java — в контейнере, на хосте не нужна); CLI по запросу `docker run --rm -v <путь>:/ws … analyze --srcDir /ws/ext --configuration /ws/cfg/base_A.json --reporter json|sarif --outputDir /ws/reports` — **основной канал для Hermes**; LSP — расширение «1C BSL Language Server» под IDE; форматтер ИТС; SARIF → GitHub Code Scanning; MCP-режим экспериментальный (Spring AI) — НЕ опираться | `bsl-analyzer` (Rust, exe) — **опция LSP-семантики в редакторе** (не основной; переоценка по 05 §7); `1c_hbk_bsl` (PyPI) — запас (180 диагн.); **`bsl-context` — ВЫЧЕРКНУТ**: сверка LLM-кода с API уже закрыта справкой (`syntax_help_search`) + Напарником (`search_1c_documentation`) — включать только по симптом-гейту (системные галлюцинации API); mcp-bsl-lsp-bridge — опция (LSP→MCP для bslc) | Анализатор **проверяет** код, bsl_search **ищет** — не дубли. **Один инструмент на роль**: в IDE 1 LSP, в Hermes — CLI-вызов по запросу (перечитывает каталог при каждом запуске; фоновых демонов нет). Работаем **только с выгрузкой РАСШИРЕНИЯ**; типовую конфигурацию подключать вторым каталогом (multi-root/несколько `--srcDir`) как read-only контекст — иначе ложные «метод не найден» |
+| Напарник/ИТС (**LLM-ядро, Этап 1.5**) | **1c-buddy :6002 — ядро, сразу после моста** (решение владельца 2026-08-09): токен code.1c.ai — **бесплатный**; чат (:6002/chat, подключение внешних MCP в чат — наш мост :6003 «глаза в базу») + MCP (8 tools: ask_1c_ai, explain_1c_syntax, check_1c_code, modify_1c_code, search_1c_documentation, search_its, fetch_its, diff_versions) + OpenAI `/v1` (модель `1c-buddy` для Cursor/Hermes/prime) | ИТС-скраперы/hbk **не нужны** (поиск/чтение ИТС закрывает Напарник); spring-mcp-1c-copilot, 1C-ai-mcp, 1CExpert — дубли-шлюзы; Mini AI 1С — альт. клиент для Конфигуратора |
+
+**Ключевой факт (поправка владельца):** справка у `syntax_help_search` (lekot) и у `mcp-bsl-platform-context` (Java) — **ОДНА И ТА ЖЕ встроенная справка платформы** (синтакс-помощник). Различие — только качество поиска (fuzzy+ранжирование+структура vs параметризованный LIKE по name/content) и способ раздачи данных (готовый SQLite-дамп в репо vs чтение из установленной 1С через `--platform-path`). Не описывать их как «две разные справки» — владелец это поправил.
+
+## Транспорт/интеграция (один сервер — три клиента)
+- **1c-mcp-toolkit** :6003 — Streamable HTTP; Hermes `hermes mcp add` (url); Cursor mcp.json `type:http`; **prime-agent**: `type:"http"` — работает из коробки.
+- **lekot/mcp-1c**, java-context — **stdio**; Hermes — `hermes mcp add <name> --command oscript --args <main.os>` (пифоллы CLI — в SKILL.md, раздел «Развёртывание stdio MCP-сервера в Hermes»); Cursor — `command: oscript / java`; **prime-agent: stdio-записи в mcpServers молча отбрасываются** → заводить через **in-kernel python-обёртку** `mcp.client.stdio.stdio_client(StdioServerParameters...)` + `ClientSession` (list_tools/call_tool) / SSE-серверы — `sse_client`. REST-моста — прямой httpx из ядра.
+- RLM/Buddy/Atlas (HTTP) — prime `type: http` без обёртки.
+
+## Паспорт портов/каталогов
+6003 мост · 8080 SearXNG (не трогать!) · 1414 OneBridge запрещён · 6002 1c-buddy (**LLM-ядро, Этап 1.5**) · 9000 rlm (резерв) · 8000 bsl-atlas (опция) · **без порта**: bsl-analyzer (MCP stdio, exe), bslc (Docker/CI) · каталог `C:\hermes\tools\mcp-1c\` (развёртка lekot 2026-08-10 — владелец: «в тулзы, не в корень»; путь **строго без кириллицы**) · репо выгрузки `~/prime-workspace/1c-bridge/`
+
+## Детали ключевых инструментов (проверено по README)
+- **lekot/mcp-1c**: 5 tools (`bsl_search`, `xml_search`, `config_list`, `read_module` (файл/список/тело метода), `syntax_help_search`); oscript 2.0+, пакет `sql`; готовый дамп справки в репозитории (`src/data/shcntx_help.db`); установка — копия `build/` → `C:\hermes\tools\mcp-1c\` (env `SHCNTX_HELP_DB` НЕ обязателен — БД ищется рядом с main.os), Hermes: `hermes mcp add mcp-1c --command oscript --args <main.os>`; правило `1c-mcp-metadata.mdc` в `.cursor\rules\`; параметры bsl_search: path/query/useRegex (не pattern!); полный развёрт — `references/static-contour-deploy.md`.
+- **autumn-mcp**: stdio + tools (без prompts/resources); аннотации `&Инструмент`, `&ПараметрИнструмента`, `&ВыполнениеИнструмента`; autumn-mcpify — `&ДоступноВMCP` на подкомандах CLI (кэш опций, `&MCPДлительная`, readOnlyHint).
+- **mcp-bsl-platform-context**: `java -Dfile.encoding=UTF-8 -jar <ver>.jar --platform-path "C:\Program Files\1cv8\8.3.27.2130"`; режимы --mode stdio|sse (SSE-порт 8080 конфликтует с SearXNG — использовать stdio); требует Java 17+.
+
+## Pitfalls работы с гайдами/артефактами
+- read_file считает `03-1c-mcp-ai-openyellow.md` «бинарным» (CRLF + длинные строки) → читать через terminal: `sed -n 'N,Mp' file | tr -d '\r'`; грепать — через search_files.
+- patch V4A в md-таблицах: экранирование бэктиков/бэкслешей даёт артефакты (`\``, дубли строк) — после каждого мультиханка проверять `grep -n '\\\\'` и чинить replace-режимом с точными литеральными символами
+- После write_file/patch с длинной кириллицей — CJK-иероглифы вместо букв («Нап喏» = Напарник; скан-проверка python: диапазоны `\u4e00-\u9fff` и `[A-Za-z]+[\xd0-\xd1][\x80-\xff]`) и `\"` в коде-фрагментах (в cmd-примерах предпочесть одинарные кавычки: `pip install '.[http]'`). Проверка после каждого мультипатча.
+- web_extract на GitHub README часто пуст → `curl -sL https://raw.githubusercontent.com/<owner>/<repo>/{master,main}/README.md` (пробовать обе ветки).
