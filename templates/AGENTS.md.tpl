@@ -47,8 +47,9 @@
 
 ## Анализ кода
 
-- Статический контур mcp-1c (lekot): `bsl_search`, `read_module`, `xml_search`,
-  `config_list`, `syntax_help_search` — инструменты `mcp__mcp1c__*`.
+- Статический контур mcp-1c-autumn (порт lekot/mcp-1c на autumn-mcp): `bsl_search`,
+  `read_module`, `xml_search`, `config_list`, `syntax_help_search` —
+  инструменты `mcp__mcp_1c_autumn__*`.
 - Источник: `src/cfe/<Расширение>`; контекст типовой: `src/cf`.
 - Отчёт — в `reports/`, из git исключён.
 
