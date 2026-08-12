@@ -107,7 +107,7 @@ bash scripts/ninja.sh new demo-bp --ext DataExchange --ext PrintForms
 По умолчанию `install.sh` ничего не меняет за пределами `C:\hermes`: движок живёт
 в `C:\hermes\tools\engine\oscript-2.1.0`, а сессии делают
 `export PATH="/c/hermes/tools/engine/oscript-2.1.0/bin:$PATH"`. Чтобы oscript/opm
-были видны всем клиентам (IDE, prime-agent, любые терминалы) без ручного export,
+были видны всем клиентам (IDE, любые терминалы) без ручного export,
 допишите `bin` в **USER PATH** (реестр HKCU — админ-права не нужны):
 
 ```bash
@@ -131,176 +131,13 @@ cmd /c opm.bat version  # → 1.4.1
 - уже открытые окружения (в т.ч. Hermes) подхватят PATH после перезапуска сессии —
   broadcast WM_SETTINGCHANGE отправляется, но Explorer перечитывает не всегда.
 
-## 9. prime-agent — установка (Фаза B, проверено 2026-08-09)
+## 9. prime-agent — ОТЛОЖЕНО / архив (см. C:\\hermes\\prime-fail)
 
-Нативный CLI-агент Prime Intellect (v0.7.1), ставится в глобальный Node
-(у нас — node Hermes, `C:\Users\<user>\AppData\Local\hermes\node`; bin уже в PATH).
-
-Особенности сети: `github.com` не резолвится, поэтому **ассеты релиза качаются
-в обход** — через `api.github.com` (он доступен; цепочка
-api.github.com → objects.githubusercontent.com не затрагивает github.com):
-
-```bash
-cd <downloads>
-# 1) id ассетов из релиза
-python - <<'PY'
-import json,urllib.request
-d=json.load(urllib.request.urlopen("https://api.github.com/repos/PrimeIntellect-ai/prime-agent/releases/latest"))
-for a in d["assets"]:
-    if a["name"].endswith(".tgz"): print(a["name"], a["id"])
-PY
-# 2) скачать (prime-agent-0.7.1.tgz и core/ai/tui) с Accept: application/octet-stream
-curl -sL -H "Accept: application/octet-stream" -o <имя>.tgz \
-  https://api.github.com/repos/PrimeIntellect-ai/prime-agent/releases/assets/<id>
-# 3) npm: разрешить remote-зависимости (иначе EALLOWREMOTE)
-npm config set allow-remote all
-# 4) установка: ретраи + verbose обязательны (сеть рвёт ECONNRESET при массовых загрузках),
-#    --ignore-scripts допустимо: бандл самодостаточен (chunk-файлы, подпакеты не нужны)
-npm i -g --ignore-scripts --loglevel=verbose --fetch-retries=4 \
-  "C:\...\prime-agent-0.7.1.tgz" "C:\...\prime-agent-core-0.7.1.tgz" \
-  "C:\...\prime-agent-ai-0.7.1.tgz" "C:\...\prime-agent-tui-0.7.1.tgz"
-# 5) проверка
-prime-agent --version   # → 0.7.1
-prime-agent --help
-prime-agent model list  # провайдер называется `opencode` (это OpenCode Zen);
-                        # модель `deepseek-v4-flash-free` есть в списке
-# 6) первый вызов (ключ — из Hermes .env: OPENCODE_ZEN_API_KEY = OPENCODE_API_KEY)
-HKEY=$(grep '^OPENCODE_ZEN_API_KEY=' "$HOME/AppData/Local/hermes/.env" | cut -d= -f2-)
-OPENCODE_API_KEY="$HKEY" prime-agent --provider opencode --model deepseek-v4-flash-free \
-  -p "Ответь одним словом: ок"          # text: «ок» (≈11 c)
-OPENCODE_API_KEY="$HKEY" prime-agent --mode json --provider opencode --model deepseek-v4-flash-free \
-  "Сколько будет 2+2? Ответь цифрой."   # JSONL: session→agent_start→message_*→agent_end
-```
-
-Грабли:
-- `npm config set allow-remote true` — **невалидное значение** (нужно `all|none|root`);
-- Node 22.8+ обязателен (в cli.js есть version-check);
-- **ключ runtime читается только из env** `OPENCODE_API_KEY` (`getEnvApiKey` в коде);
-  `~/.prime/agent/auth.json` для этого НЕ используется (он для `/login` в TUI) —
-  при запуске всегда `OPENCODE_API_KEY=...` или export в профиль;
-- имя провайдера в CLI — `opencode` (в Hermes конфиге он называется `opencode-zen`,
-  это один и тот же сервис); модель — `deepseek-v4-flash-free` (как в Hermes);
-- модель «как в Hermes»: текущая сессия Hermes = `deepseek-v4-flash-free` (opencode-zen) —
-  проверено: `prime-agent model list` содержит эту модель;
-- при неверифицированной сети первый запуск агента может потребовать доступа
-  к недоступным хостам — проверять по фактическим ошибкам.
-
-### RPC-режим и обёртка one-shot (проверено 2026-08-09)
-
-RPC работает поверх stdin/stdout (JSONL по LF, strip `\r`). Фактический протокол
-(сверен по коду бандла, не по докам):
-- команда: `{"type":"prompt","id":"1","message":"..."}` — поле **`message`**,
-  а не `prompt` (иначе `success:false`, `Cannot read properties of undefined`);
-- ответ на команду: `{"id":"1","type":"response","command":"prompt","success":true}`;
-- события потока: `agent_start → turn_start → message_start/update/end →
-  turn_end → agent_end`; текст ассистента — `message_end` с `role:"assistant"`,
-  конкатенация `content[].text`;
-- `get_state` даёт модель/сессию (`~/.prime/agent/sessions/*.jsonl`);
-- сервер завершается по EOF stdin — держать stdin открытым (sleep-таймаут).
-
-Готовая обёртка one-shot: `C:\hermes\tools\scripts\pi.sh`
-(ключ берёт из `.env` Hermes, сама та же модель, таймаут по умолчанию 60 с):
-
-```bash
-bash C:/hermes/tools/scripts/pi.sh "Сколько будет 7*6?"   # → 42
-bash C:/hermes/tools/scripts/pi.sh "переведи: hello world"  # → «привет мир»
-```
-
-### Делегирование задач из Hermes — файловая шина (проверено 2026-08-09)
-
-Развернуть живой RPC-процесс через stdin фонового терминала **нельзя**:
-у background-процессов Hermes stdin сразу EOF (cat умирает), FIFO на Windows
-ломается (`read ENOTCONN` в Node), PTY не читает ответы. Рабочий канал —
-**файловая шина**: `python`-мост держит prime-agent (PIPE), команды — файлами,
-ответы — в лог.
-
-```bash
-# 1) запуск моста (держит prime-agent --mode rpc в фоне, БЕЗ окон):
-#    ⚠ ВАРИАНТ ДЛЯ ОТЛАДКИ: сам pythonw не создаёт консоли, но воркеры prime
-#    всё равно открывают окна Windows Terminal поверх (проверено).
-#    БОЕВОЙ вариант — служба Windows, см. раздел «Режим фоновой службы» ниже.
-#    pythonw.exe = GUI-вариант python: консольное окно не создаётся вообще.
-"C:/Users/artkudr/AppData/Local/hermes/hermes-agent/venv/Scripts/pythonw.exe" \
-  "C:/hermes/tools/scripts/pi-bridge.py"
-#    (обычный python.exe тоже можно, но при каждом запуске мелькает окно)
-# 2) делегирование: пишем команду файлом
-echo '{"type":"prompt","id":"p1","message":"Текст задачи"}' \
-  > "C:/hermes/tools/run/pi-cmd/002-task.json"
-# 3) ответ — в логе (JSONL; финал: agent_end → content[].text):
-tail -c 2000 "C:/hermes/tools/run/pi-out.log"
-```
-
-- каталоги: команды `C:/hermes/tools/run/pi-cmd/*.json` → после обработки
-  переезжают в `pi-cmd/.done/`; ответы и события — `pi-out.log` (append);
-- команды: `{"type":"prompt","id":N,"message":"..."}` — и любой RPC-набор
-  (get_state, steer, abort и т.д.);
-- **шim `prime-agent` Popen не находит** (нет .exe) — мост запускает
-  `node <node_modules>/prime-agent/dist/bundle/cli.js --mode rpc ...`;
-- мост запускает node с `CREATE_NO_WINDOW` — иначе Windows рисует окно
-  консоли на каждый консольный процесс (node + daemon + worker = 3 мелькания
-  на запрос; проверено и устранено 2026-08-09);
-- мост тянет `OPENCODE_API_KEY` из `.env` Hermes (`OPENCODE_ZEN_API_KEY`),
-  в PATH полагаться не нужно;
-- первый prompt разворачивает kernel-venv + Windows-pipe daemon
-  (~1 мин bootstrap), затем серия живёт в `~/.prime/agent/sessions/*.jsonl`;
-- остановить мост: `taskkill /F /PID <pid>` (или закрыть вкладку процесса).
-
-### Режим фоновой службы (сессия 0 — ноль окон, проверено 2026-08-09)
-
-Даже с pythonw + CREATE_NO_WINDOW Windows Terminal открывает окно на каждую
-новую консоль воркера prime (daemon/worker/kernel) — мелькания видны.
-Радикальное решение: мост живёт как СЛУЖБА Windows в неинтерактивной
-сессии 0 — окнам физически негде появиться (проверено: запрос «Финляндия →
-Хельсинки» обработан, все процессы — SessionId 0).
-
-```bash
-# 1) один раз: NSSM (обёртка: берёт на себя контракт с SCM, иначе
-#    sc create даёт ошибку 1053 «служба не ответила своевременно»)
-winget install -e --id NSSM.NSSM
-
-# 2) установка службы — из-под админа (UAC-промпт):
-#    scripts/install-service.ps1 создаёт службу pi-bridge (NSSM):
-#    pythonw.exe + pi-bridge.py, AppDirectory C:/hermes,
-#    AppExit Default Restart (автоперезапуск при падении).
-#    Запуск из обычной сессии: UAC-обёртка (см. ниже).
-
-# 3) управление (из обычного терминала не работает — нужен админ):
-nssm status pi-bridge    # SERVICE_RUNNING
-nssm stop pi-bridge
-nssm start pi-bridge
-nssm remove pi-bridge confirm
-```
-
-Важно (сессия 0 = окружение LocalSystem, а не пользователя):
-- node/git/python в PATH службы ОТСУТСТВУЮТ → pi-bridge.py сам добавляет
-  каталоги (hermes/node, hermes/git, venv/Scripts) и запускает node по
-  абсолютному пути (node_exe). Без этого — FileNotFoundError (WinError 2).
-- daemon prime пишет лог в %systemprofile%\.prime (у LocalSystem это
-  C:\WINDOWS\system32\config\systemprofile) — не пугаться.
-- первый «холодный» старт daemon может не уложиться в 30-секундный таймаут
-  клиента (Timed out ... "create") — повторный запрос проходит.
-
-UAC-обёртка из обычной сессии:
-```bash
-powershell -NoProfile -Command "Start-Process powershell -Verb RunAs -Wait   -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File',  'C:\hermes\tools\scripts\install-service.ps1'"
-```
-Протокол установки — C:\hermes\tools\run\svc-install.log.
-
-Автономность (после установки служба живёт сама):
-- при включении Windows служба стартует автоматически (start=auto);
-- упадёт мост — NSSM перезапустит его (AppExit Default Restart);
-- принудительно: `nssm restart|stop pi-bridge` (из админ-консоли;
-  status — из любой).
-- монополия шины: НЕ запускать второй мост (pythonw вручную), пока служба
-  жива, — два процесса будут конкурировать за pi-cmd/pi-out.log.
-
-Перенос на другой ПК (развёртывание из репозитория):
-- `scripts/pi-bridge.py`, `scripts/install-service.ps1`, `scripts/pi.sh`
-  входят в репозиторий; перед установкой службы заменить в них
-  `C:\Users\artkudr` на профиль нового пользователя (node.exe,
-  node_modules/prime-agent, .env с ключом) и `C:\hermes\tools` при ином корне.
-- после чего два шага: `winget install -e --id NSSM.NSSM` и
-  `install-service.ps1` из-под админа (UAC-обёртка выше).
+> **ОТЛОЖЕНО 2026-08-12.** Prime Agent (prime-agent, v0.7.1) выписан из
+> проекта как сырой и дублирующий контур. Подробности, скрипты и
+> конфиги — в `C:\\hermes\\prime-fail\README.md`. В рабочем контуре
+> остаются: `mcp-1c-autumn` (статический), `1c-mcp-toolkit :6003`
+> (живой мост), `1c-buddy :6002` (LLM-ядро).
 
 ## 10. Публикация на GitHub (Фаза 6 — ВЫПОЛНЕНО 2026-08-10)
 

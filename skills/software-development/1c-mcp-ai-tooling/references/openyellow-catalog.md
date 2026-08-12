@@ -57,4 +57,4 @@
 5. **LLM из кода 1С** → `GigaChat_SDK_1C` / `1c-ai-connector` (ИИкона) / `ollama-function-calling-1c`.
 6. **Безопасность** → `1c-trusted-gateway` (27★) для прода; тест-прокси уже есть.
 
-Гайд пользователя по мосту: `~/guides/01-1c-mcp-bridge.md` (детали в prime-agent-скилла и memory: `Bridge: 1c-mcp-toolkit ROCTUP proxy — :6003`).
+Гайд пользователя по мосту: `~/guides/01-1c-mcp-bridge.md` (детали в memory: `Bridge: 1c-mcp-toolkit ROCTUP proxy — :6003`).
