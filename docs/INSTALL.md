@@ -190,7 +190,7 @@ git push -u origin main
 ```bash
 # образ из Docker Hub (впервые — скачается); повторный запуск идемпотентен
 docker run -d --name 1c-mcp-toolkit-proxy \
-  -p 6003:6003 \
+  -p 127.0.0.1:6003:6003 \
   -e ALLOW_DANGEROUS_WITH_APPROVAL=true \
   -e TIMEOUT=180 \
   --restart unless-stopped \

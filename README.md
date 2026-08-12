@@ -31,7 +31,7 @@
 
 ```bash
 # 1) поднять прокси (Docker, идемпотентно):
-docker run -d --name 1c-mcp-toolkit-proxy -p 6003:6003 \
+docker run -d --name 1c-mcp-toolkit-proxy -p 127.0.0.1:6003:6003 \
   -e ALLOW_DANGEROUS_WITH_APPROVAL=true --restart unless-stopped \
   roctup/1c-mcp-toolkit-proxy
 

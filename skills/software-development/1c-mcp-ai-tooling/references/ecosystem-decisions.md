@@ -27,7 +27,7 @@
 - RLM/Buddy/Atlas (HTTP) — тип `type: http` без обёртки (prime — отложен, см. `C:\hermes\prime-fail`).
 
 ## Паспорт портов/каталогов
-6003 мост · 8080 SearXNG (не трогать!) · 1414 OneBridge запрещён · 6002 1c-buddy (**LLM-ядро, Этап 1.5**) · 9000 rlm (резерв) · 8000 bsl-atlas (опция) · **без порта**: bsl-analyzer (MCP stdio, exe), bslc (Docker/CI) · каталог `C:\hermes\tools\mcp-1c\` (развёртка lekot 2026-08-10 — владелец: «в тулзы, не в корень»; путь **строго без кириллицы**) · репо выгрузки `~/bridge-workspace/1c-bridge/` (prime-workspace — архив, см. `C:\hermes\prime-fail`)
+6003 мост · 8080 SearXNG (не трогать!) · 6002 1c-buddy (**LLM-ядро, Этап 1.5**) · 9000 rlm (резерв) · 8000 bsl-atlas (опция) · **без порта**: bsl-analyzer (MCP stdio, exe), bslc (Docker/CI) · каталог `C:\hermes\tools\mcp-1c\` (развёртка lekot 2026-08-10 — владелец: «в тулзы, не в корень»; путь **строго без кириллицы**) · репо выгрузки `~/bridge-workspace/1c-bridge/` (prime-workspace — архив, см. `C:\hermes\prime-fail`)
 
 ## Детали ключевых инструментов (проверено по README)
 - **lekot/mcp-1c**: 5 tools (`bsl_search`, `xml_search`, `config_list`, `read_module` (файл/список/тело метода), `syntax_help_search`); oscript 2.0+, пакет `sql`; готовый дамп справки в репозитории (`src/data/shcntx_help.db`); установка — копия `build/` → `C:\hermes\tools\mcp-1c\` (env `SHCNTX_HELP_DB` НЕ обязателен — БД ищется рядом с main.os), Hermes: `hermes mcp add mcp-1c --command oscript --args <main.os>`; правило `1c-mcp-metadata.mdc` в `.cursor\rules\`; параметры bsl_search: path/query/useRegex (не pattern!); полный развёрт — `references/static-contour-deploy.md`.
