@@ -19,10 +19,12 @@
 
 ## 2026-08-10
 
-- **Живой мост в 1С — 1c-mcp-toolkit ROCTUP на :6003 (прокси-режим).**
-  Образ `roctup/1c-mcp-toolkit-proxy` есть в Docker Hub (в отличие от ghcr.io —
-  см. ниже важность выбора реестра). Прокси поднят как контейнер с
-  `--restart unless-stopped` и `ALLOW_DANGEROUS_WITH_APPROVAL=true`:
+- **Живой мост в 1С — 1c-mcp-toolkit (наш форк, прокси-режим :6003).**
+  Исходники форкнуты: `artkudr/1c-mcp-toolkit` (upstream `ROCTUP/1c-mcp-toolkit`).
+  Собираем локально из форка (`docker compose up -d --build`, `build: .` в
+  `docker-compose.yml` — Docker Hub не нужен). Контейнер поднимается на
+  `127.0.0.1:6003` (бинд зашит в compose форка) с `--restart unless-stopped` и
+  `ALLOW_DANGEROUS_WITH_APPROVAL=true`:
   `execute_code`/`close_1c_session` доступны только с подтверждением, read-only
   инструменты (query/metadata/event log/rights/links/syntax help) — свободно.
   Схема: агент → прокси :6003 → long-polling `/1c/poll?channel=...` → обработка

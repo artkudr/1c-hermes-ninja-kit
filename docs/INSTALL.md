@@ -188,13 +188,13 @@ git push -u origin main
 ### 12.1 Прокси (Docker)
 
 ```bash
-# образ из Docker Hub (впервые — скачается); повторный запуск идемпотентен
-docker run -d --name 1c-mcp-toolkit-proxy \
-  -p 127.0.0.1:6003:6003 \
-  -e ALLOW_DANGEROUS_WITH_APPROVAL=true \
-  -e TIMEOUT=180 \
-  --restart unless-stopped \
-  roctup/1c-mcp-toolkit-proxy
+# Форк исходников (наш, правка бинда 127.0.0.1 зашита в docker-compose.yml):
+#   https://github.com/artkudr/1c-mcp-toolkit  (upstream: ROCTUP/1c-mcp-toolkit)
+# Локальная сборка из форка — Docker Hub не нужен (compose build: .).
+git clone https://github.com/artkudr/1c-mcp-toolkit.git "$PROJECTS_ROOT/tools/run/1c-mcp-toolkit"
+cd "$PROJECTS_ROOT/tools/run/1c-mcp-toolkit"
+docker compose up -d --build
+# контейнер 1c-mcp-toolkit-proxy поднимается на 127.0.0.1:6003 (restart: unless-stopped)
 ```
 
 Полезные переменные (дефолты из образа):

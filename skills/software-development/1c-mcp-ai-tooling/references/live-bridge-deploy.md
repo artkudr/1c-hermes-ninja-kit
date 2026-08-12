@@ -10,10 +10,11 @@ qbik-dev (УНФ, платформа 8.3.27.2130 x86).
 
 ## Развёрт (3 шага)
 
-1. Прокси (идемпотентно):
-   docker run -d --name 1c-mcp-toolkit-proxy -p 6003:6003 \
-     -e ALLOW_DANGEROUS_WITH_APPROVAL=true --restart unless-stopped \
-     roctup/1c-mcp-toolkit-proxy
+1. Прокси (из нашего форка, локальная сборка — Hub не нужен):
+   git clone https://github.com/artkudr/1c-mcp-toolkit.git tools/run/1c-mcp-toolkit
+   cd tools/run/1c-mcp-toolkit
+   docker compose up -d --build
+   # бинд 127.0.0.1:6003 зашит в docker-compose.yml форка (см. INSTALL.md §12)
    Дефолты образа: RESPONSE_FORMAT=toon, ANONYMIZATION_ENABLED=false.
 
 2. Сессия 1С (пароль вводит владелец, НЕ храним):

@@ -30,10 +30,11 @@
 операции — только с подтверждением `ALLOW_DANGEROUS_WITH_APPROVAL=true`).
 
 ```bash
-# 1) поднять прокси (Docker, идемпотентно):
-docker run -d --name 1c-mcp-toolkit-proxy -p 127.0.0.1:6003:6003 \
-  -e ALLOW_DANGEROUS_WITH_APPROVAL=true --restart unless-stopped \
-  roctup/1c-mcp-toolkit-proxy
+# 1) поднять прокси (Docker, локальная сборка из форка — Hub не нужен):
+#    форк исходников: https://github.com/artkudr/1c-mcp-toolkit
+git clone https://github.com/artkudr/1c-mcp-toolkit.git "$PROJECTS_ROOT/tools/run/1c-mcp-toolkit"
+cd "$PROJECTS_ROOT/tools/run/1c-mcp-toolkit"
+docker compose up -d --build   # бинд 127.0.0.1:6003 зашит в docker-compose.yml форка
 
 # 2) подключить к Hermes (12 инструментов):
 hermes mcp add 1c-toolkit --url http://127.0.0.1:6003/mcp   # ответы: n, y
